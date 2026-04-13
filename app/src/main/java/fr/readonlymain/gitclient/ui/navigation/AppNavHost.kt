@@ -7,9 +7,15 @@ import androidx.navigation.compose.composable
 import fr.readonlymain.gitclient.ui.screen.RepositoriesScreen
 import fr.readonlymain.gitclient.ui.screen.SettingsScreen
 import fr.readonlymain.gitclient.ui.screen.WorkspaceScreen
+import fr.readonlymain.gitclient.ui.theme.ThemeMode
+import kotlinx.coroutines.coroutineScope
 
 @Composable
-fun AppNavHost(navController: NavHostController) {
+fun AppNavHost(
+    navController: NavHostController,
+    themeMode: ThemeMode,
+    onThemeChange: (ThemeMode) -> Unit
+) {
     NavHost(
         navController = navController,
         startDestination = Route.Workspace.route
@@ -21,7 +27,10 @@ fun AppNavHost(navController: NavHostController) {
             RepositoriesScreen()
         }
         composable(Route.Settings.route) {
-            SettingsScreen()
+            SettingsScreen(
+                themeMode = themeMode,
+                onThemeChange = onThemeChange
+            )
         }
     }
 }
