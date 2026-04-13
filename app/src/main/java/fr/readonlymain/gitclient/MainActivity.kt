@@ -11,21 +11,36 @@ import androidx.compose.material3.NavigationRail
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import fr.readonlymain.gitclient.data.ThemePreferences
 import fr.readonlymain.gitclient.ui.components.NavigationRailBar
 import fr.readonlymain.gitclient.ui.navigation.AppNavHost
 import fr.readonlymain.gitclient.ui.theme.GitClientTheme
+import fr.readonlymain.gitclient.ui.theme.ThemeMode
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            GitClientTheme {
+
+            val context = LocalContext.current
+            val prefs = remember { ThemePreferences(context) }
+            val coroutineScope = rememberCoroutineScope()
+
+            val themeMode by prefs.getTheme()
+                .collectAsState(initial = ThemeMode.SYSTEM)
+
+            GitClientTheme(themeMode = themeMode) {
 
                 val navController = rememberNavController()
 
@@ -51,7 +66,15 @@ class MainActivity : ComponentActivity() {
                             }
                         )
 
-                        AppNavHost(navController = navController)
+                        AppNavHost(
+                            navController = navController,
+                            themeMode = themeMode,
+                            onThemeChange = { newTheme ->
+                                coroutineScope.launch {
+                                    prefs.setTheme(newTheme)
+                                }
+                            }
+                        )
                     }
                 }
             }
