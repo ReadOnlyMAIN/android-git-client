@@ -1,66 +1,54 @@
 package fr.readonlymain.gitclient.ui.components
 
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Inventory2
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.TableRestaurant
+import androidx.compose.material.icons.outlined.Inventory2
+import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.TableRestaurant
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationRail
-import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.Text
+import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.painterResource
-import fr.readonlymain.gitclient.R
-import fr.readonlymain.gitclient.ui.navigation.Route
+import androidx.compose.ui.graphics.vector.ImageVector
+
+enum class AppDestinations(
+    val label: String,
+    val selectedIcon: ImageVector,
+    val unselectedIcon: ImageVector
+) {
+    WORKSPACE("Workspace", Icons.Filled.TableRestaurant, Icons.Outlined.TableRestaurant),
+    REPOSITORIES("Repositories", Icons.Filled.Inventory2, Icons.Outlined.Inventory2),
+    SETTINGS("Settings", Icons.Filled.Settings, Icons.Outlined.Settings),
+}
 
 @Composable
 fun NavigationRailBar(
     currentRoute: String?,
-    onItemSelected: (String) -> Unit
+    onItemSelected: (String) -> Unit,
+    content: @Composable () -> Unit = {}
 ) {
-    NavigationRail(
+    NavigationSuiteScaffold(
         modifier = Modifier.fillMaxHeight(),
+        navigationSuiteItems = {
+            AppDestinations.entries.forEach { destination ->
+                item(
+                    icon = {
+                        Icon(
+                            imageVector = if (currentRoute == destination.label) destination.selectedIcon else destination.unselectedIcon,
+                            contentDescription = destination.label
+                        )
+                    },
+                    label = { Text(destination.label) },
+                    selected = currentRoute == destination.label,
+                    onClick = { onItemSelected(destination.label) }
+                )
+            }
+        }
     ) {
-        NavigationRailItem(
-            selected = currentRoute == Route.Workspace.route,
-            onClick = { onItemSelected(Route.Workspace.route) },
-            icon = {
-                Icon(
-                    painter = painterResource(id = R.drawable.ic_table_restaurant),
-                    contentDescription = "Workspace",
-                    tint = MaterialTheme.colorScheme.onSurface
-                )
-            },
-            label = { Text("Workspace") }
-        )
-        NavigationRailItem(
-            selected = currentRoute == Route.Repositories.route,
-            onClick = { onItemSelected(Route.Repositories.route) },
-            icon = {
-                Icon(
-                    painter = painterResource(id = R.drawable.ic_inventory_2),
-                    contentDescription = "Workspace",
-                    tint = MaterialTheme.colorScheme.onSurface
-                )
-            },
-            label = { Text("Home") }
-        )
-
-        Spacer(modifier = Modifier.weight(1f))
-
-        NavigationRailItem(
-            selected = currentRoute == Route.Settings.route,
-            onClick = { onItemSelected(Route.Settings.route) },
-            icon = {
-                Icon(
-                    painter = painterResource(id = R.drawable.ic_settings),
-                    contentDescription = "Workspace",
-                    tint = MaterialTheme.colorScheme.onSurface
-                )
-            },
-            label = { Text("Settings") }
-        )
-
+        content()
     }
 }

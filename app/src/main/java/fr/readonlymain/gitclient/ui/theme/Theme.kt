@@ -2,6 +2,7 @@ package fr.readonlymain.gitclient.ui.theme
 
 import android.app.Activity
 import android.os.Build
+import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
@@ -56,9 +57,11 @@ fun GitClientTheme(
         else -> LightColorScheme
     }
 
-    MaterialTheme(
-        colorScheme = colorScheme,
-        typography = Typography,
-        content = content
-    )
+    Crossfade(targetState = colorScheme, label = "ThemeCrossfade") { scheme ->
+        MaterialTheme(
+            colorScheme = scheme,
+            typography = Typography,
+            content = content
+        )
+    }
 }

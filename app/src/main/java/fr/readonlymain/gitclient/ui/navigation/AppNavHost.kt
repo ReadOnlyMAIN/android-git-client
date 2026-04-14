@@ -12,6 +12,7 @@ import kotlinx.coroutines.coroutineScope
 
 @Composable
 fun AppNavHost(
+    innerPadding: androidx.compose.foundation.layout.PaddingValues,
     navController: NavHostController,
     themeMode: ThemeMode,
     onThemeChange: (ThemeMode) -> Unit
@@ -21,7 +22,9 @@ fun AppNavHost(
         startDestination = Route.Workspace.route
     ) {
         composable(Route.Workspace.route) {
-            WorkspaceScreen()
+            WorkspaceScreen(
+                innerPadding = innerPadding
+            )
         }
         composable(Route.Repositories.route) {
             RepositoriesScreen()

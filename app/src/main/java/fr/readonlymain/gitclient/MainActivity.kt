@@ -33,6 +33,8 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
 
+            val navController = rememberNavController()
+
             val context = LocalContext.current
             val prefs = remember { ThemePreferences(context) }
             val coroutineScope = rememberCoroutineScope()
@@ -42,31 +44,24 @@ class MainActivity : ComponentActivity() {
 
             GitClientTheme(themeMode = themeMode) {
 
-                val navController = rememberNavController()
-
                 val backStackEntry by navController.currentBackStackEntryAsState()
                 val currentRoute = backStackEntry?.destination?.route
 
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(innerPadding)
-                    ) {
-                        NavigationRailBar(
-                            currentRoute = currentRoute,
-                            onItemSelected = { route ->
-                                navController.navigate(route) {
-                                    popUpTo(navController.graph.startDestinationId) {
-                                        saveState = true
-                                    }
-                                    launchSingleTop = true
-                                    restoreState = true
+                    NavigationRailBar(
+                        currentRoute = currentRoute,
+                        onItemSelected = { route ->
+                            navController.navigate(route) {
+                                popUpTo(navController.graph.startDestinationId) {
+                                    saveState = true
                                 }
+                                launchSingleTop = true
+                                restoreState = true
                             }
-                        )
-
+                        }
+                    ) {
                         AppNavHost(
+                            innerPadding = innerPadding,
                             navController = navController,
                             themeMode = themeMode,
                             onThemeChange = { newTheme ->
