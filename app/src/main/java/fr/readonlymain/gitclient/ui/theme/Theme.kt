@@ -10,6 +10,7 @@ import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 
 private val DarkColorScheme = darkColorScheme(
@@ -37,6 +38,7 @@ private val LightColorScheme = lightColorScheme(
 @Composable
 fun GitClientTheme(
     themeMode: ThemeMode = ThemeMode.SYSTEM,
+    oledMode: Boolean = false,
     // Dynamic color is available on Android 12+
     dynamicColor: Boolean = true,
     content: @Composable () -> Unit
@@ -47,14 +49,26 @@ fun GitClientTheme(
         ThemeMode.SYSTEM -> isSystemInDarkTheme()
     }
 
-    val colorScheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            val context = LocalContext.current
-            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        }
+    val context = LocalContext.current
 
-        darkTheme -> DarkColorScheme
-        else -> LightColorScheme
+    val baseScheme = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        if (darkTheme) {
+            dynamicDarkColorScheme(context)
+        } else {
+            dynamicLightColorScheme(context)
+        }
+    } else {
+        if (darkTheme) DarkColorScheme else LightColorScheme
+    }
+
+    val colorScheme = if (darkTheme && oledMode) {
+        baseScheme.copy(
+            background = Color.Black,
+            surface = Color.Black,
+            surfaceVariant = Color(0xFF121212)
+        )
+    } else {
+        baseScheme
     }
 
     Crossfade(targetState = colorScheme, label = "ThemeCrossfade") { scheme ->
