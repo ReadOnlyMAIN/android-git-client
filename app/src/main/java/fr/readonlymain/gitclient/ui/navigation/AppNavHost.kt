@@ -15,7 +15,9 @@ fun AppNavHost(
     innerPadding: androidx.compose.foundation.layout.PaddingValues,
     navController: NavHostController,
     themeMode: ThemeMode,
-    onThemeChange: (ThemeMode) -> Unit
+    oledMode: Boolean,
+    onThemeChange: (ThemeMode) -> Unit,
+    onOledChange: (Boolean) -> Unit
 ) {
     NavHost(
         navController = navController,
@@ -32,7 +34,9 @@ fun AppNavHost(
         composable(Route.Settings.route) {
             SettingsScreen(
                 themeMode = themeMode,
-                onThemeChange = onThemeChange
+                oledMode = oledMode,
+                onThemeChange = onThemeChange,
+                onOledChange = onOledChange
             )
         }
     }

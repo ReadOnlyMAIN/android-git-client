@@ -7,6 +7,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationRail
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -41,13 +42,18 @@ class MainActivity : ComponentActivity() {
 
             val themeMode by prefs.getTheme()
                 .collectAsState(initial = ThemeMode.SYSTEM)
+            val oledMode by prefs.getOledMode()
+                .collectAsState(initial = false)
 
-            GitClientTheme(themeMode = themeMode) {
+            GitClientTheme(themeMode = themeMode, oledMode = oledMode) {
 
                 val backStackEntry by navController.currentBackStackEntryAsState()
                 val currentRoute = backStackEntry?.destination?.route
 
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+                Scaffold(
+                    modifier = Modifier.fillMaxSize(),
+                    containerColor = MaterialTheme.colorScheme.background
+                ) { innerPadding ->
                     NavigationRailBar(
                         currentRoute = currentRoute,
                         onItemSelected = { route ->
@@ -64,9 +70,15 @@ class MainActivity : ComponentActivity() {
                             innerPadding = innerPadding,
                             navController = navController,
                             themeMode = themeMode,
+                            oledMode = oledMode,
                             onThemeChange = { newTheme ->
                                 coroutineScope.launch {
                                     prefs.setTheme(newTheme)
+                                }
+                            },
+                            onOledChange = { enabled ->
+                                coroutineScope.launch {
+                                    prefs.setOledMode(enabled)
                                 }
                             }
                         )
