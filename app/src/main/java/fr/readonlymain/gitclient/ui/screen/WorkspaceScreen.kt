@@ -1,15 +1,11 @@
 package fr.readonlymain.gitclient.ui.screen
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement.spacedBy
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -18,101 +14,53 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.CornerBasedShape
 import androidx.compose.foundation.shape.CornerSize
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material3.Card
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.IconButtonDefaults
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
-import androidx.compose.material.icons.outlined.Inventory2
-import androidx.compose.material.icons.outlined.AccountTree
-import androidx.compose.material.icons.outlined.Sync
-import androidx.compose.material.icons.outlined.Download
-import androidx.compose.material.icons.outlined.Upload
-import androidx.compose.material.icons.outlined.KeyboardArrowUp
-import androidx.compose.material.icons.outlined.KeyboardDoubleArrowUp
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
+import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.KeyboardDoubleArrowDown
+import androidx.compose.material.icons.outlined.KeyboardDoubleArrowUp
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SuggestionChip
-import androidx.compose.material3.TextField
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import fr.readonlymain.gitclient.ui.components.workspace.WorkspaceToolbar
 
 @Composable
-fun WorkspaceScreen(
-    innerPadding: PaddingValues
-) {
+fun WorkspaceScreen() {
     Row(
         modifier = Modifier
-            .padding(innerPadding)
+            .padding(horizontal = 16.dp)
             .fillMaxSize()
     ) {
-        Card(
-            modifier = Modifier
-                .fillMaxHeight()
-                .padding(horizontal = 8.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-            )
+        WorkspaceToolbar(
+            onNewRepository = { /**/ },
+            onNewBranch = { /**/ },
+            onSynchronize = { /**/ },
+            onPull = { /**/ },
         ) {
-            Column(
-                Modifier.padding(16.dp),
-                verticalArrangement = spacedBy(16.dp)
-            ) {
-                IconButton(
-                    onClick = { /* doSomething() */ },
-                    modifier = Modifier.size(48.dp),
-                    shape = RoundedCornerShape(8.dp),
-                    colors = IconButtonDefaults.filledTonalIconButtonColors()
-                ) {
-                    Icon(Icons.Outlined.Inventory2, contentDescription = "Select repository")
-                }
-                IconButton(
-                    onClick = { /* doSomething() */ },
-                    modifier = Modifier.size(48.dp),
-                    shape = RoundedCornerShape(8.dp),
-                    colors = IconButtonDefaults.filledTonalIconButtonColors()
-                ) {
-                    Icon(Icons.Outlined.AccountTree, contentDescription = "Select branch")
-                }
-                IconButton(
-                    onClick = { /* doSomething() */ },
-                    modifier = Modifier.size(48.dp)
-                ) {
-                    Icon(Icons.Outlined.Sync, contentDescription = "Synchronize")
-                }
-                IconButton(
-                    onClick = { /* doSomething() */ },
-                    modifier = Modifier.size(48.dp)
-                ) {
-                    Icon(Icons.Outlined.Download, contentDescription = "Pull")
-                }
-                IconButton(
-                    onClick = { /* doSomething() */ },
-                    modifier = Modifier.size(48.dp)
-                ) {
-                    Icon(Icons.Outlined.Upload, contentDescription = "Push")
-                }
-            }
+
         }
 
-        Column(modifier = Modifier
-            .weight(1f)
-            .fillMaxHeight()
-            .padding(horizontal = 8.dp),
+
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxHeight()
+                .padding(horizontal = 8.dp),
             verticalArrangement = spacedBy(16.dp)
         ) {
             Card(
@@ -120,7 +68,7 @@ fun WorkspaceScreen(
                     .weight(1f)
                     .fillMaxWidth(),
                 colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    containerColor = MaterialTheme.colorScheme.surface
                 )
             ) {
                 Column(
@@ -140,20 +88,26 @@ fun WorkspaceScreen(
                             onClick = { /* doSomething() */ },
                             modifier = Modifier.size(48.dp)
                         ) {
-                            Icon(Icons.Outlined.KeyboardArrowDown, contentDescription = "Synchronize")
+                            Icon(
+                                Icons.Outlined.KeyboardArrowDown,
+                                contentDescription = "Synchronize"
+                            )
                         }
                         IconButton(
                             onClick = { /* doSomething() */ },
                             modifier = Modifier.size(48.dp)
                         ) {
-                            Icon(Icons.Outlined.KeyboardDoubleArrowDown, contentDescription = "Synchronize")
+                            Icon(
+                                Icons.Outlined.KeyboardDoubleArrowDown,
+                                contentDescription = "Synchronize"
+                            )
                         }
                     }
                     Card(
                         modifier = Modifier
                             .fillMaxSize(),
                         colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.background,
+                            containerColor = MaterialTheme.colorScheme.surfaceContainer,
                         )
                     ) {
                     }
@@ -164,7 +118,7 @@ fun WorkspaceScreen(
                     .weight(1f)
                     .fillMaxWidth(),
                 colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    containerColor = MaterialTheme.colorScheme.surface
                 )
             ) {
                 Column(
@@ -190,14 +144,17 @@ fun WorkspaceScreen(
                             onClick = { /* doSomething() */ },
                             modifier = Modifier.size(48.dp)
                         ) {
-                            Icon(Icons.Outlined.KeyboardDoubleArrowUp, contentDescription = "Synchronize")
+                            Icon(
+                                Icons.Outlined.KeyboardDoubleArrowUp,
+                                contentDescription = "Synchronize"
+                            )
                         }
                     }
                     Card(
                         modifier = Modifier
                             .fillMaxSize(),
                         colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.background,
+                            containerColor = MaterialTheme.colorScheme.surfaceContainer,
                         )
                     ) {
 
@@ -213,9 +170,9 @@ fun WorkspaceScreen(
             modifier = Modifier
                 .weight(2f)
                 .fillMaxHeight()
-                .padding(horizontal = 8.dp),
+                .padding(start = 8.dp),
             colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                containerColor = MaterialTheme.colorScheme.surface
             )
         ) {
             Column(
@@ -243,7 +200,6 @@ fun WorkspaceScreen(
                         modifier = Modifier
                             .weight(1f),
                         state = rememberTextFieldState(),
-                        lineLimits = TextFieldLineLimits.SingleLine,
                         label = { Text("Commit message") },
                     )
                     Button(
@@ -314,7 +270,7 @@ fun WorkspaceScreen(
                         style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
-                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis
                     )
                     SuggestionChip(
                         onClick = { /* onClick */ },
@@ -332,7 +288,7 @@ fun WorkspaceScreen(
                     modifier = Modifier
                         .padding(start = (shape_height / 2) - 2.dp)
                         .width(4.dp)
-                        .height(shape_height)
+                        .height(shape_height / 2)
                         .background(
                             color = MaterialTheme.colorScheme.primary,
                             shape = RoundedCornerShape(
@@ -384,7 +340,7 @@ fun WorkspaceScreen(
                         style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
-                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis
                     )
                     SuggestionChip(
                         onClick = { /* onClick */ },
@@ -402,7 +358,7 @@ fun WorkspaceScreen(
                     modifier = Modifier
                         .padding(start = (shape_height / 2) - 2.dp)
                         .width(4.dp)
-                        .height(shape_height)
+                        .height(shape_height / 2)
                         .background(
                             color = MaterialTheme.colorScheme.primary,
                             shape = RoundedCornerShape(
@@ -454,7 +410,7 @@ fun WorkspaceScreen(
                         style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
-                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis
                     )
                     SuggestionChip(
                         onClick = { /* onClick */ },

@@ -1,5 +1,6 @@
 package fr.readonlymain.gitclient.ui.navigation
 
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Composable
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -8,25 +9,19 @@ import fr.readonlymain.gitclient.ui.screen.RepositoriesScreen
 import fr.readonlymain.gitclient.ui.screen.SettingsScreen
 import fr.readonlymain.gitclient.ui.screen.WorkspaceScreen
 import fr.readonlymain.gitclient.ui.theme.ThemeMode
-import kotlinx.coroutines.coroutineScope
 
 @Composable
 fun AppNavHost(
-    innerPadding: androidx.compose.foundation.layout.PaddingValues,
     navController: NavHostController,
     themeMode: ThemeMode,
-    oledMode: Boolean,
     onThemeChange: (ThemeMode) -> Unit,
-    onOledChange: (Boolean) -> Unit
 ) {
     NavHost(
         navController = navController,
         startDestination = Route.Workspace.route
     ) {
         composable(Route.Workspace.route) {
-            WorkspaceScreen(
-                innerPadding = innerPadding
-            )
+            WorkspaceScreen()
         }
         composable(Route.Repositories.route) {
             RepositoriesScreen()
@@ -34,9 +29,7 @@ fun AppNavHost(
         composable(Route.Settings.route) {
             SettingsScreen(
                 themeMode = themeMode,
-                oledMode = oledMode,
-                onThemeChange = onThemeChange,
-                onOledChange = onOledChange
+                onThemeChange = onThemeChange
             )
         }
     }
