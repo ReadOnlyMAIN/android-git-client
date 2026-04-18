@@ -107,7 +107,7 @@ fun WorkspaceScreen() {
                         modifier = Modifier
                             .fillMaxSize(),
                         colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
                         )
                     ) {
                     }
@@ -154,7 +154,7 @@ fun WorkspaceScreen() {
                         modifier = Modifier
                             .fillMaxSize(),
                         colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
                         )
                     ) {
 

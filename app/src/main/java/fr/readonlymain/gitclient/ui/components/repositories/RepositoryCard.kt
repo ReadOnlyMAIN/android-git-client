@@ -32,7 +32,7 @@ fun RepositoryCard(
     onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
-    Card (
+    Card(
         modifier = modifier,
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
@@ -43,7 +43,12 @@ fun RepositoryCard(
                 containerColor = Color.Transparent
             ),
             headlineContent = { Text(repositoryData.name) },
-            supportingContent = { Text(repositoryData.remoteUrl, style = MaterialTheme.typography.bodySmall) },
+            supportingContent = {
+                Text(
+                    repositoryData.remoteUrl,
+                    style = MaterialTheme.typography.bodySmall
+                )
+            },
             leadingContent = {
                 Icon(
                     imageVector = Icons.Filled.Inventory2,
