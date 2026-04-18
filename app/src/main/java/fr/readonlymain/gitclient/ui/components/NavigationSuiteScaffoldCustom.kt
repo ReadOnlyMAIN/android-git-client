@@ -16,6 +16,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.WideNavigationRail
+import androidx.compose.material3.WideNavigationRailDefaults
 import androidx.compose.material3.WideNavigationRailItem
 import androidx.compose.material3.WideNavigationRailValue
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
@@ -29,6 +30,7 @@ import androidx.compose.material3.rememberWideNavigationRailState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
@@ -130,6 +132,9 @@ fun NavigationSuiteScaffoldCustom(
                 if (isWideNavRailCollapsedType || navSuiteType == NavigationSuiteType.NavigationRail) {
                     WideNavigationRail(
                         state = railState,
+                        colors = WideNavigationRailDefaults.colors(
+                            containerColor = Color.Transparent
+                        ),
                         header = { menuButton() }
                     ) {
                         Column(modifier = Modifier.fillMaxHeight()) {
