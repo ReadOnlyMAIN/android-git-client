@@ -1,17 +1,23 @@
 package fr.readonlymain.gitclient.data.repository
 
-import android.content.Context
 import android.net.Uri
-import dagger.hilt.android.qualifiers.ApplicationContext
+import fr.readonlymain.gitclient.data.model.Branch
 import fr.readonlymain.gitclient.data.model.CloneResult
+import fr.readonlymain.gitclient.data.model.CommitInfo
 import fr.readonlymain.gitclient.data.model.GitCredential
 import fr.readonlymain.gitclient.utils.resolveUriToPath
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.eclipse.jgit.api.CreateBranchCommand
 import org.eclipse.jgit.api.Git
+import org.eclipse.jgit.api.ListBranchCommand
 import org.eclipse.jgit.lib.ProgressMonitor
+import org.eclipse.jgit.lib.Repository
 import org.eclipse.jgit.transport.UsernamePasswordCredentialsProvider
 import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -25,9 +31,7 @@ import javax.inject.Singleton
  *
  */
 @Singleton
-class GitManager @Inject constructor(
-    @param:ApplicationContext private val context: Context
-) {
+class GitManager @Inject constructor() {
     /**
      * Clones a Git repository to a local directory.
      *
@@ -177,4 +181,97 @@ class GitManager @Inject constructor(
             CloneResult("Can't open repository: ${e.localizedMessage}", false)
         }
     }
+
+    /**
+     * Retrieves the list of commits from the current branch of a local Git repository.
+     *
+     * This function opens the repository located at [repoPath], iterates through the commit
+     * history, and extracts relevant information such as the short hash, author details,
+     * message, and formatted date.
+     *
+     * @param repoPath The absolute file system path to the local repository directory.
+     * @return A list of [CommitInfo] objects representing the history of the current branch.
+     * Returns an empty list if an error occurs or if no commits are found.
+     */
+    suspend fun getCommits(repoPath: String): List<CommitInfo> = withContext(Dispatchers.IO) {
+        val commitList = mutableListOf<CommitInfo>()
+        val dateFormatter = SimpleDateFormat(
+            "dd/MM/yyyy HH:mm",
+            Locale.getDefault()
+        )
+
+        try {
+            Git.open(File(repoPath)).use { git ->
+                val logs = git.log().call()
+
+                for (rev in logs) {
+                    val author = rev.authorIdent
+                    val date = Date(rev.commitTime.toLong() * 1000)
+
+                    commitList.add(
+                        CommitInfo(
+                            commitHash = rev.name,
+                            authorName = author.name ?: "Unknown",
+                            authorEmail = author.emailAddress ?: "",
+                            commitMessage = rev.shortMessage,
+                            commitDate = dateFormatter.format(date)
+                        )
+                    )
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+
+        return@withContext commitList
+    }
+
+    suspend fun getBranches(repoPath: String): List<String> = withContext(Dispatchers.IO) {
+        try {
+            Git.open(File(repoPath)).use { git ->
+                git.branchList().setListMode(ListBranchCommand.ListMode.ALL)
+                    .call()
+                    .map { ref ->
+                        Repository.shortenRefName(ref.name)
+                    }
+            }
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
+
+    suspend fun getBranchesFullRefs(repoPath: String): List<String> = withContext(Dispatchers.IO) {
+        try {
+            Git.open(File(repoPath)).use { git ->
+                git.branchList().setListMode(ListBranchCommand.ListMode.ALL)
+                    .call()
+                    .map { ref ->
+                        ref.name
+                    }
+            }
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
+
+    suspend fun checkoutBranch(repoPath: String, branch: Branch): String =
+        withContext(Dispatchers.IO) {
+            try {
+                Git.open(File(repoPath)).use { git ->
+                    val command = git.checkout().setName(branch.name)
+
+                    if (!branch.isLocal && branch.isRemote && branch.remoteRef != null) {
+                        command.setCreateBranch(true)
+                            .setStartPoint(branch.remoteRef) // Utilise "refs/remotes/origin/main"
+                            .setUpstreamMode(CreateBranchCommand.SetupUpstreamMode.TRACK)
+                    }
+
+                    command.call()
+                    return@withContext branch.name
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                return@withContext branch.name
+            }
+        }
 }

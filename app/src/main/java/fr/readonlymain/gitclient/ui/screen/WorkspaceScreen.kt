@@ -12,17 +12,15 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CornerSize
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.KeyboardDoubleArrowDown
 import androidx.compose.material.icons.outlined.KeyboardDoubleArrowUp
-import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -30,31 +28,38 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import fr.readonlymain.gitclient.ui.components.workspace.CommitItem
 import fr.readonlymain.gitclient.ui.components.workspace.WorkspaceToolbar
+import fr.readonlymain.gitclient.ui.viewmodel.WorkspaceViewModel
 
 @Composable
-fun WorkspaceScreen() {
+fun WorkspaceScreen(
+    viewModel: WorkspaceViewModel = hiltViewModel()
+) {
     Row(
         modifier = Modifier
             .padding(horizontal = 16.dp)
             .fillMaxSize()
     ) {
         WorkspaceToolbar(
-            onNewRepository = { /**/ },
-            onNewBranch = { /**/ },
+            repositories = viewModel.repositories.value,
+            branches = viewModel.branches.value,
+            onRepositorySelected = { path ->
+                viewModel.onRepositorySelected(path)
+            },
+            onBranchSelected = { branch ->
+                viewModel.onBranchSelected(branch)
+            },
             onSynchronize = { /**/ },
             onPull = { /**/ },
-        ) {
-
-        }
-
+            onPush = { /**/ }
+        )
 
         Column(
             modifier = Modifier
@@ -163,9 +168,6 @@ fun WorkspaceScreen() {
             }
         }
 
-        val row_height = 56.dp
-        val shape_height = row_height - 16.dp
-
         Card(
             modifier = Modifier
                 .weight(2f)
@@ -179,14 +181,20 @@ fun WorkspaceScreen() {
                 Modifier.padding(16.dp),
                 verticalArrangement = spacedBy(2.dp)
             ) {
+                val repoName = viewModel.repoName.value
+                val branchName = viewModel.branchName.value
+                Text(
+                    "$repoName ($branchName)",
+                    style = MaterialTheme.typography.headlineSmall
+                )
+
                 Row(
-                    //modifier = Modifier.height(row_height),
                     horizontalArrangement = spacedBy(16.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Box(
                         modifier = Modifier
-                            .height(shape_height)
+                            .height(40.dp)
                             .aspectRatio(1f)
                             .background(
                                 color = MaterialTheme.colorScheme.primary,
@@ -212,216 +220,15 @@ fun WorkspaceScreen() {
                     }
                 }
 
-                // Sample commits
+                val commits = viewModel.commitsByRepo.value
 
-                Box(
-                    modifier = Modifier
-                        .padding(start = (shape_height / 2) - 2.dp)
-                        .width(4.dp)
-                        .height(shape_height)
-                        .background(
-                            color = MaterialTheme.colorScheme.primary,
-                            shape = RoundedCornerShape(
-                                topStartPercent = 50,
-                                bottomStartPercent = 50,
-                                topEndPercent = 50,
-                                bottomEndPercent = 50
-                            )
-                        )
-                )
-
-                Row(
-                    modifier = Modifier.height(row_height),
-                    horizontalArrangement = spacedBy(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = spacedBy(4.dp)
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .height(shape_height)
-                            .aspectRatio(1f)
-                            .background(
-                                color = MaterialTheme.colorScheme.primary,
-                                shape = CircleShape
-                            )
-                    )
-                    Text(
-                        "Fix layout issue",
-                        Modifier
-                            .weight(1f),
-                        style = MaterialTheme.typography.titleMedium
-                    )
-                    Icon(
-                        imageVector = Icons.Outlined.Person,
-                        contentDescription = null,
-                        modifier = Modifier
-                            .height(shape_height)
-                            .aspectRatio(1f)
-                            .background(
-                                color = MaterialTheme.colorScheme.surfaceVariant,
-                                shape = CircleShape
-                            )
-                            .padding(8.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        modifier = Modifier
-                            .width(128.dp),
-                        text = "John Doe",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    SuggestionChip(
-                        onClick = { /* onClick */ },
-                        label = {
-                            Text(
-                                "a1b2c3d",
-                                style = MaterialTheme.typography.labelSmall
-                            )
-                        },
-                        shape = CircleShape
-                    )
-                }
-
-                Box(
-                    modifier = Modifier
-                        .padding(start = (shape_height / 2) - 2.dp)
-                        .width(4.dp)
-                        .height(shape_height / 2)
-                        .background(
-                            color = MaterialTheme.colorScheme.primary,
-                            shape = RoundedCornerShape(
-                                topStartPercent = 50,
-                                bottomStartPercent = 50,
-                                topEndPercent = 50,
-                                bottomEndPercent = 50
-                            )
-                        )
-                )
-
-                Row(
-                    modifier = Modifier.height(row_height),
-                    horizontalArrangement = spacedBy(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .height(shape_height)
-                            .aspectRatio(1f)
-                            .background(
-                                color = MaterialTheme.colorScheme.primary,
-                                shape = CircleShape
-                            )
-                    )
-                    Text(
-                        "Fix layout issue",
-                        Modifier
-                            .weight(1f),
-                        style = MaterialTheme.typography.titleMedium
-                    )
-                    Icon(
-                        imageVector = Icons.Outlined.Person,
-                        contentDescription = null,
-                        modifier = Modifier
-                            .height(shape_height)
-                            .aspectRatio(1f)
-                            .background(
-                                color = MaterialTheme.colorScheme.surfaceVariant,
-                                shape = CircleShape
-                            )
-                            .padding(8.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        modifier = Modifier
-                            .width(128.dp),
-                        text = "enivort@enivort.enivort",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    SuggestionChip(
-                        onClick = { /* onClick */ },
-                        label = {
-                            Text(
-                                "a1b2c3d",
-                                style = MaterialTheme.typography.labelSmall
-                            )
-                        },
-                        shape = CircleShape
-                    )
-                }
-
-                Box(
-                    modifier = Modifier
-                        .padding(start = (shape_height / 2) - 2.dp)
-                        .width(4.dp)
-                        .height(shape_height / 2)
-                        .background(
-                            color = MaterialTheme.colorScheme.primary,
-                            shape = RoundedCornerShape(
-                                topStartPercent = 50,
-                                bottomStartPercent = 50,
-                                topEndPercent = 50,
-                                bottomEndPercent = 50
-                            )
-                        )
-                )
-
-                Row(
-                    modifier = Modifier.height(row_height),
-                    horizontalArrangement = spacedBy(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .height(shape_height)
-                            .aspectRatio(1f)
-                            .background(
-                                color = MaterialTheme.colorScheme.primary,
-                                shape = CircleShape
-                            )
-                    )
-                    Text(
-                        "Fix layout issue",
-                        Modifier
-                            .weight(1f),
-                        style = MaterialTheme.typography.titleMedium
-                    )
-                    Icon(
-                        imageVector = Icons.Outlined.Person,
-                        contentDescription = null,
-                        modifier = Modifier
-                            .height(shape_height)
-                            .aspectRatio(1f)
-                            .background(
-                                color = MaterialTheme.colorScheme.surfaceVariant,
-                                shape = CircleShape
-                            )
-                            .padding(8.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        modifier = Modifier
-                            .width(128.dp),
-                        text = "ReadOnlyMAIN",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    SuggestionChip(
-                        onClick = { /* onClick */ },
-                        label = {
-                            Text(
-                                "a1b2c3d",
-                                style = MaterialTheme.typography.labelSmall
-                            )
-                        },
-                        shape = CircleShape
-                    )
+                    items(commits) { commit ->
+                        CommitItem(commit = commit)
+                    }
                 }
             }
         }
