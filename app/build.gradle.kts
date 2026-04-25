@@ -63,6 +63,9 @@ dependencies {
     // Hilt
     implementation(libs.hilt.android)
     implementation(libs.androidx.compose.runtime.saveable)
+    implementation(libs.androidx.compose.foundation.layout)
+    implementation(libs.coil.compose)
+    implementation(libs.coil.network.okhttp)
     ksp(libs.hilt.compiler)
     implementation(libs.hilt.navigation.compose)
 
