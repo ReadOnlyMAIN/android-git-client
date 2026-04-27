@@ -169,10 +169,41 @@ class WorkspaceViewModel @Inject constructor(
     }
 
     fun onPull() {
+        viewModelScope.launch {
+            val selectedRepo = repositoriesPreferences.selectedRepoFlow.first()
+            val credentials = credentialsPreferences.credentialsFlow.first()
 
+            if (selectedRepo != null) {
+                // Can add isLoading state here
+                val result = gitManager.pull(selectedRepo, credentials)
+
+                if (result.isSuccess) {
+                    refreshCommitList(selectedRepo)
+                    refreshBranches(selectedRepo)
+                    _uiEvent.emit(UiEvent.Success("Successfully pulled current branch"))
+                } else {
+                    val error = result.exceptionOrNull()?.localizedMessage ?: "Unknown error"
+                    _uiEvent.emit(UiEvent.Error("Error: Can't pull ($error)"))
+                }
+            }
+        }
     }
 
     fun onPush() {
+        viewModelScope.launch {
+            val selectedRepo = repositoriesPreferences.selectedRepoFlow.first()
+            val credentials = credentialsPreferences.credentialsFlow.first()
 
+            if (selectedRepo != null) {
+                val result = gitManager.push(selectedRepo, credentials)
+                if (result.isSuccess) {
+                    refreshCommitList(selectedRepo)
+                    _uiEvent.emit(UiEvent.Success("Successfully pushed refs"))
+                } else {
+                    val error = result.exceptionOrNull()?.localizedMessage ?: "Unknown error"
+                    _uiEvent.emit(UiEvent.Error("Error: Can't push some ref ($error)"))
+                }
+            }
+        }
     }
 }

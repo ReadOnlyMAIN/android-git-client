@@ -16,6 +16,7 @@ import org.eclipse.jgit.lib.BranchTrackingStatus
 import org.eclipse.jgit.lib.ProgressMonitor
 import org.eclipse.jgit.lib.Repository
 import org.eclipse.jgit.revwalk.RevWalk
+import org.eclipse.jgit.transport.RemoteRefUpdate
 import org.eclipse.jgit.transport.UsernamePasswordCredentialsProvider
 import java.io.File
 import java.text.SimpleDateFormat
@@ -361,5 +362,78 @@ class GitManager @Inject constructor() {
             } catch (e: Exception) {
                 Pair(0, 0)
             }
+        }
+
+    suspend fun pull(repoPath: String, credentials: List<GitCredential>): Result<Unit> =
+        withContext(Dispatchers.IO) {
+            val attempts = listOf<GitCredential?>(null) + credentials
+            var lastException: Exception? = null
+
+            for (cred in attempts) {
+                try {
+                    Git.open(File(repoPath)).use { git ->
+                        val pullCommand = git.pull()
+
+                        if (cred != null) {
+                            pullCommand.setCredentialsProvider(
+                                UsernamePasswordCredentialsProvider(cred.username, cred.token)
+                            )
+                        }
+
+                        val result = pullCommand.call()
+
+                        if (result.isSuccessful) {
+                            return@withContext Result.success(Unit)
+                        } else {
+                            val mergeStatus = result.mergeResult?.mergeStatus ?: "Unknown"
+                            lastException = Exception("Pull failed: $mergeStatus")
+                        }
+                    }
+                } catch (e: Exception) {
+                    lastException = e
+                }
+            }
+            Result.failure(lastException ?: Exception("Pull failed"))
+        }
+
+    suspend fun push(repoPath: String, credentials: List<GitCredential>): Result<Unit> =
+        withContext(Dispatchers.IO) {
+            val attempts = listOf<GitCredential?>(null) + credentials
+            var lastException: Exception? = null
+
+            for (cred in attempts) {
+                try {
+                    Git.open(File(repoPath)).use { git ->
+                        val pushCommand = git.push()
+
+                        if (cred != null) {
+                            pushCommand.setCredentialsProvider(
+                                UsernamePasswordCredentialsProvider(cred.username, cred.token)
+                            )
+                        }
+
+                        val pushResults = pushCommand.call()
+
+                        pushResults.forEach { pushResult ->
+                            pushResult.remoteUpdates.forEach { update ->
+                                when (update.status) {
+                                    RemoteRefUpdate.Status.OK,
+                                    RemoteRefUpdate.Status.UP_TO_DATE -> {
+                                    }
+
+                                    else -> {
+                                        throw Exception("Push failed for ${update.remoteName}: ${update.status}")
+                                    }
+                                }
+                            }
+                        }
+                        return@withContext Result.success(Unit)
+                    }
+
+                } catch (e: Exception) {
+                    lastException = e
+                }
+            }
+            Result.failure(lastException ?: Exception("Push failed"))
         }
 }
