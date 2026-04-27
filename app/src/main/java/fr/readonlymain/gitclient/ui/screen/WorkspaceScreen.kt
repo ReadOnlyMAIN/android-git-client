@@ -1,5 +1,6 @@
 package fr.readonlymain.gitclient.ui.screen
 
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement.spacedBy
 import androidx.compose.foundation.layout.Box
@@ -30,8 +31,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import fr.readonlymain.gitclient.ui.components.workspace.CommitItem
@@ -42,6 +45,15 @@ import fr.readonlymain.gitclient.ui.viewmodel.WorkspaceViewModel
 fun WorkspaceScreen(
     viewModel: WorkspaceViewModel = hiltViewModel()
 ) {
+    val context = LocalContext.current
+    val viewModel: WorkspaceViewModel = hiltViewModel()
+
+    LaunchedEffect(Unit) {
+        viewModel.toastMessage.collect { message ->
+            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+        }
+    }
+
     Row(
         modifier = Modifier
             .padding(horizontal = 16.dp)
@@ -56,7 +68,7 @@ fun WorkspaceScreen(
             onBranchSelected = { branch ->
                 viewModel.onBranchSelected(branch)
             },
-            onSynchronize = { /**/ },
+            onSynchronize = { viewModel.onSynchronize() },
             onPull = { /**/ },
             onPush = { /**/ }
         )

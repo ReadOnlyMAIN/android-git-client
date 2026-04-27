@@ -195,7 +195,7 @@ class GitManager @Inject constructor() {
      * @return A list of [CommitInfo] objects representing the history of the current branch.
      * Returns an empty list if an error occurs or if no commits are found.
      */
-    suspend fun getCommits(repoPath: String): List<CommitInfo> = withContext(Dispatchers.IO) {
+    suspend fun getCommits(repoPath: String, branchName: String? = null): List<CommitInfo> = withContext(Dispatchers.IO) {
         val commitList = mutableListOf<CommitInfo>()
         val dateFormatter = SimpleDateFormat(
             "dd/MM/yyyy HH:mm",
@@ -296,4 +296,27 @@ class GitManager @Inject constructor() {
                 return@withContext branch.name
             }
         }
+
+    suspend fun fetch(repoPath: String, credentials: List<GitCredential>): Result<Unit> = withContext(Dispatchers.IO) {
+        val attempts = listOf<GitCredential?>(null) + credentials
+        var lastException: Exception? = null
+
+        for (cred in attempts) {
+            try {
+                Git.open(File(repoPath)).use { git ->
+                    val fetchCommand = git.fetch()
+                    if (cred != null) {
+                        fetchCommand.setCredentialsProvider(
+                            UsernamePasswordCredentialsProvider(cred.username, cred.token)
+                        )
+                    }
+                    fetchCommand.call()
+                    return@withContext Result.success(Unit)
+                }
+            } catch (e: Exception) {
+                lastException = e
+            }
+        }
+        Result.failure(lastException ?: Exception("Fetch failed"))
+    }
 }

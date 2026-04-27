@@ -7,8 +7,11 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import fr.readonlymain.gitclient.data.model.Branch
 import fr.readonlymain.gitclient.data.model.CommitInfo
 import fr.readonlymain.gitclient.data.model.Repository
+import fr.readonlymain.gitclient.data.preferences.CredentialsPreferences
 import fr.readonlymain.gitclient.data.preferences.RepositoriesPreferences
 import fr.readonlymain.gitclient.data.repository.GitManager
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -17,8 +20,12 @@ import org.eclipse.jgit.lib.Repository as JGitRepository
 @HiltViewModel
 class WorkspaceViewModel @Inject constructor(
     private val gitManager: GitManager,
-    private val repositoriesPreferences: RepositoriesPreferences
+    private val repositoriesPreferences: RepositoriesPreferences,
+    private val credentialsPreferences: CredentialsPreferences
 ) : ViewModel() {
+
+    private val _toastMessage = MutableSharedFlow<String>()
+    val toastMessage = _toastMessage.asSharedFlow()
 
     var repoName = mutableStateOf("")
         private set
@@ -97,7 +104,7 @@ class WorkspaceViewModel @Inject constructor(
 
     private suspend fun refreshCommitList(repoPath: String) {
         isLoadingCommits.value = true
-        val commits = gitManager.getCommits(repoPath)
+        val commits = gitManager.getCommits(repoPath, branchName.value)
         commitsByRepo.value = commits
         isLoadingCommits.value = false
     }
@@ -128,5 +135,31 @@ class WorkspaceViewModel @Inject constructor(
         }
 
         return branchMap.values.toList().sortedBy { it.name }
+    }
+
+    fun onSynchronize() {
+        viewModelScope.launch {
+            val selectedRepo = repositoriesPreferences.selectedRepoFlow.first()
+            val credentials = credentialsPreferences.credentialsFlow.first()
+            if (selectedRepo != null) {
+                val result = gitManager.fetch(selectedRepo, credentials)
+                if (result.isSuccess) {
+                    refreshCommitList(selectedRepo)
+                    refreshBranches(selectedRepo)
+                    _toastMessage.emit("Successfully synchronized")
+                } else {
+                    val error = result.exceptionOrNull()?.localizedMessage ?: "Unknown error"
+                    _toastMessage.emit("Synchronization failed: $error")
+                }
+            }
+        }
+    }
+
+    fun onPull() {
+
+    }
+
+    fun onPush() {
+
     }
 }

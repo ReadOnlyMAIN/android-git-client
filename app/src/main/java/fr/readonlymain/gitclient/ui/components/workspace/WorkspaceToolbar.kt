@@ -81,13 +81,13 @@ fun WorkspaceToolbar(
                 )
             }
             IconButton(
-                onClick = { /* doSomething() */ },
+                onClick = { onSynchronize() },
                 modifier = Modifier.size(48.dp)
             ) {
                 Icon(Icons.Outlined.Sync, contentDescription = "Synchronize")
             }
             IconButton(
-                onClick = { /* doSomething() */ },
+                onClick = { onPull() },
                 modifier = Modifier.size(48.dp)
             ) {
                 Icon(
@@ -96,7 +96,7 @@ fun WorkspaceToolbar(
                 )
             }
             IconButton(
-                onClick = { /* doSomething() */ },
+                onClick = { onPush() },
                 modifier = Modifier.size(48.dp)
             ) {
                 Icon(
