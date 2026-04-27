@@ -4,6 +4,7 @@ import android.net.Uri
 import fr.readonlymain.gitclient.data.model.Branch
 import fr.readonlymain.gitclient.data.model.CloneResult
 import fr.readonlymain.gitclient.data.model.CommitInfo
+import fr.readonlymain.gitclient.data.model.CommitStatus
 import fr.readonlymain.gitclient.data.model.GitCredential
 import fr.readonlymain.gitclient.utils.resolveUriToPath
 import kotlinx.coroutines.Dispatchers
@@ -13,6 +14,7 @@ import org.eclipse.jgit.api.Git
 import org.eclipse.jgit.api.ListBranchCommand
 import org.eclipse.jgit.lib.ProgressMonitor
 import org.eclipse.jgit.lib.Repository
+import org.eclipse.jgit.revwalk.RevWalk
 import org.eclipse.jgit.transport.UsernamePasswordCredentialsProvider
 import java.io.File
 import java.text.SimpleDateFormat
@@ -202,11 +204,30 @@ class GitManager @Inject constructor() {
 
         try {
             Git.open(File(repoPath)).use { git ->
+                val repo = git.repository
+                val walk = RevWalk(repo)
+
+                val localRefs = repo.refDatabase.getRefsByPrefix("refs/heads/")
+                    .map { walk.parseCommit(it.objectId) }
+                val remoteRefs = repo.refDatabase.getRefsByPrefix("refs/remotes/")
+                    .map { walk.parseCommit(it.objectId) }
+
                 val logs = git.log().call()
 
                 for (rev in logs) {
                     val author = rev.authorIdent
                     val date = Date(rev.commitTime.toLong() * 1000)
+                    val currentCommit = walk.parseCommit(rev.id)
+
+                    val isLocal = localRefs.any { walk.isMergedInto(currentCommit, it) }
+                    val isRemote = remoteRefs.any { walk.isMergedInto(currentCommit, it) }
+
+                    val status = when {
+                        isLocal && isRemote -> CommitStatus.SYNCED
+                        isLocal -> CommitStatus.LOCAL_ONLY
+                        isRemote -> CommitStatus.REMOTE_ONLY
+                        else -> CommitStatus.UNKNOWN
+                    }
 
                     commitList.add(
                         CommitInfo(
@@ -214,7 +235,8 @@ class GitManager @Inject constructor() {
                             authorName = author.name ?: "Unknown",
                             authorEmail = author.emailAddress ?: "",
                             commitMessage = rev.shortMessage,
-                            commitDate = dateFormatter.format(date)
+                            commitDate = dateFormatter.format(date),
+                            status = status
                         )
                     )
                 }
