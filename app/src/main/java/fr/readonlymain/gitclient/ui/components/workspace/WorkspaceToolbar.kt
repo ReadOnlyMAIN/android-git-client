@@ -9,6 +9,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Inventory2
 import androidx.compose.material.icons.outlined.Sync
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -40,7 +42,9 @@ fun WorkspaceToolbar(
     onRepositorySelected: (String) -> Unit,
     onBranchSelected: (Branch) -> Unit,
     onSynchronize: () -> Unit,
+    needPull: Boolean,
     onPull: () -> Unit,
+    needPush: Boolean,
     onPush: () -> Unit
 ) {
     var activeDialog by remember {
@@ -86,23 +90,40 @@ fun WorkspaceToolbar(
             ) {
                 Icon(Icons.Outlined.Sync, contentDescription = "Synchronize")
             }
+
             IconButton(
                 onClick = { onPull() },
                 modifier = Modifier.size(48.dp)
             ) {
-                Icon(
-                    painter = painterResource(id = R.drawable.ic_outlined_download),
-                    contentDescription = "Pull"
-                )
+                BadgedBox(
+                    badge = {
+                        if (needPull) {
+                            Badge()
+                        }
+                    }
+                ) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_outlined_download),
+                        contentDescription = "Pull"
+                    )
+                }
             }
             IconButton(
                 onClick = { onPush() },
                 modifier = Modifier.size(48.dp)
             ) {
-                Icon(
-                    painter = painterResource(id = R.drawable.ic_outlined_upload),
-                    contentDescription = "Push"
-                )
+                BadgedBox(
+                    badge = {
+                        if (needPush) {
+                            Badge()
+                        }
+                    }
+                ) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_outlined_upload),
+                        contentDescription = "Push"
+                    )
+                }
             }
         }
     }

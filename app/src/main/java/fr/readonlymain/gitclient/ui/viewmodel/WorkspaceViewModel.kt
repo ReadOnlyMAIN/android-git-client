@@ -39,6 +39,12 @@ class WorkspaceViewModel @Inject constructor(
     var branches = mutableStateOf<List<Branch>>(emptyList())
         private set
 
+    var needPull = mutableStateOf(false)
+        private set
+
+    var needPush = mutableStateOf(false)
+        private set
+
     init {
         viewModelScope.launch {
             repositories.value = repositoriesPreferences.repositoriesFlow.first()
@@ -105,8 +111,14 @@ class WorkspaceViewModel @Inject constructor(
 
     private suspend fun refreshCommitList(repoPath: String) {
         isLoadingCommits.value = true
+
         val commits = gitManager.getCommits(repoPath, branchName.value)
         commitsByRepo.value = commits
+
+        val (ahead, behind) = gitManager.getTrackingStatus(repoPath, branchName.value)
+        needPull.value = behind > 0
+        needPush.value = ahead > 0
+
         isLoadingCommits.value = false
     }
 
