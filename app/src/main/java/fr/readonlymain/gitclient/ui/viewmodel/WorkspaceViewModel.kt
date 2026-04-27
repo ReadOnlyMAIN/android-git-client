@@ -7,6 +7,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import fr.readonlymain.gitclient.data.model.Branch
 import fr.readonlymain.gitclient.data.model.CommitInfo
 import fr.readonlymain.gitclient.data.model.Repository
+import fr.readonlymain.gitclient.data.model.UiEvent
 import fr.readonlymain.gitclient.data.preferences.CredentialsPreferences
 import fr.readonlymain.gitclient.data.preferences.RepositoriesPreferences
 import fr.readonlymain.gitclient.data.repository.GitManager
@@ -24,8 +25,8 @@ class WorkspaceViewModel @Inject constructor(
     private val credentialsPreferences: CredentialsPreferences
 ) : ViewModel() {
 
-    private val _toastMessage = MutableSharedFlow<String>()
-    val toastMessage = _toastMessage.asSharedFlow()
+    private val _uiEvent = MutableSharedFlow<UiEvent>()
+    val uiEvent = _uiEvent.asSharedFlow()
 
     var repoName = mutableStateOf("")
         private set
@@ -146,10 +147,10 @@ class WorkspaceViewModel @Inject constructor(
                 if (result.isSuccess) {
                     refreshCommitList(selectedRepo)
                     refreshBranches(selectedRepo)
-                    _toastMessage.emit("Successfully synchronized")
+                    _uiEvent.emit(UiEvent.Success("Successfully synchronized"))
                 } else {
                     val error = result.exceptionOrNull()?.localizedMessage ?: "Unknown error"
-                    _toastMessage.emit("Synchronization failed: $error")
+                    _uiEvent.emit(UiEvent.Error("Error: Can't synchronize ($error)"))
                 }
             }
         }
