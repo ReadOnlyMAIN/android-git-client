@@ -76,6 +76,7 @@ class WorkspaceViewModel @Inject constructor(
                 repositoriesPreferences.saveSelectedBranch(actualBranch)
                 branchName.value = actualBranch
 
+                refreshBranches(selectedRepo)
                 refreshCommitList(selectedRepo)
             }
         }
@@ -86,17 +87,19 @@ class WorkspaceViewModel @Inject constructor(
         repoName.value = repoInfo?.name ?: repoPath.substringAfterLast("/")
         branchName.value = repoInfo?.defaultBranch ?: "main"
 
+        refreshBranches(repoPath)
+    }
+
+    private suspend fun refreshBranches(repoPath: String) {
         val rawBranches = gitManager.getBranchesFullRefs(repoPath)
         branches.value = transformRefsToBranches(rawBranches)
     }
 
-    fun refreshCommitList(repoPath: String) {
-        viewModelScope.launch {
-            isLoadingCommits.value = true
-            val commits = gitManager.getCommits(repoPath)
-            commitsByRepo.value = commits
-            isLoadingCommits.value = false
-        }
+    private suspend fun refreshCommitList(repoPath: String) {
+        isLoadingCommits.value = true
+        val commits = gitManager.getCommits(repoPath)
+        commitsByRepo.value = commits
+        isLoadingCommits.value = false
     }
 
     private fun transformRefsToBranches(refs: List<String>): List<Branch> {

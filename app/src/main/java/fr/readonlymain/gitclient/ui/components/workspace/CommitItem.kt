@@ -19,6 +19,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
@@ -26,6 +27,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import fr.readonlymain.gitclient.data.model.CommitInfo
+import fr.readonlymain.gitclient.data.model.CommitStatus
 import kotlinx.coroutines.launch
 
 @Composable
@@ -37,13 +39,20 @@ fun CommitItem(commit: CommitInfo) {
     val rowHeight = 56.dp
     val shapeHeight = rowHeight - 16.dp
 
+    val statusColor = when (commit.status) {
+        CommitStatus.SYNCED -> MaterialTheme.colorScheme.primary
+        CommitStatus.LOCAL_ONLY -> Color(0xFF4CAF50) // Green
+        CommitStatus.REMOTE_ONLY -> MaterialTheme.colorScheme.outline
+        CommitStatus.UNKNOWN -> MaterialTheme.colorScheme.error
+    }
+
     Box(
         modifier = Modifier
             .padding(start = (shapeHeight / 2) - 2.dp)
             .width(4.dp)
             .height(shapeHeight / 2)
             .background(
-                color = MaterialTheme.colorScheme.primary,
+                color = statusColor,
                 shape = RoundedCornerShape(
                     topStartPercent = 50,
                     bottomStartPercent = 50,
@@ -64,7 +73,7 @@ fun CommitItem(commit: CommitInfo) {
                 .height(shapeHeight)
                 .aspectRatio(1f)
                 .background(
-                    color = MaterialTheme.colorScheme.primary,
+                    color = statusColor,
                     shape = CircleShape
                 )
         )
