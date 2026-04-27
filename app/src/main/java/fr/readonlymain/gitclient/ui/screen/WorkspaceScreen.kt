@@ -98,7 +98,9 @@ fun WorkspaceScreen(
                 viewModel.onBranchSelected(branch)
             },
             onSynchronize = { viewModel.onSynchronize() },
+            needPull = viewModel.needPull.value,
             onPull = { /**/ },
+            needPush = viewModel.needPush.value,
             onPush = { /**/ }
         )
 

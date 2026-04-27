@@ -12,6 +12,7 @@ import kotlinx.coroutines.withContext
 import org.eclipse.jgit.api.CreateBranchCommand
 import org.eclipse.jgit.api.Git
 import org.eclipse.jgit.api.ListBranchCommand
+import org.eclipse.jgit.lib.BranchTrackingStatus
 import org.eclipse.jgit.lib.ProgressMonitor
 import org.eclipse.jgit.lib.Repository
 import org.eclipse.jgit.revwalk.RevWalk
@@ -195,82 +196,83 @@ class GitManager @Inject constructor() {
      * @return A list of [CommitInfo] objects representing the history of the current branch.
      * Returns an empty list if an error occurs or if no commits are found.
      */
-    suspend fun getCommits(repoPath: String, branchName: String? = null): List<CommitInfo> = withContext(Dispatchers.IO) {
-        val commitList = mutableListOf<CommitInfo>()
-        val dateFormatter = SimpleDateFormat(
-            "dd/MM/yyyy HH:mm",
-            Locale.getDefault()
-        )
+    suspend fun getCommits(repoPath: String, branchName: String? = null): List<CommitInfo> =
+        withContext(Dispatchers.IO) {
+            val commitList = mutableListOf<CommitInfo>()
+            val dateFormatter = SimpleDateFormat(
+                "dd/MM/yyyy HH:mm",
+                Locale.getDefault()
+            )
 
-        try {
-            Git.open(File(repoPath)).use { git ->
-                val repo = git.repository
-                val walk = RevWalk(repo)
+            try {
+                Git.open(File(repoPath)).use { git ->
+                    val repo = git.repository
+                    val walk = RevWalk(repo)
 
-                val targetBranch = if (branchName.isNullOrBlank()) repo.branch else branchName
+                    val targetBranch = if (branchName.isNullOrBlank()) repo.branch else branchName
 
-                val logCommand = git.log()
-                var hasStarted = false
+                    val logCommand = git.log()
+                    var hasStarted = false
 
-                // Add local branch
-                val localRef = repo.resolve("refs/heads/$targetBranch")
-                if (localRef != null) {
-                    logCommand.add(localRef)
-                    hasStarted = true
-                }
-
-                // Add all remote tracking branches with that name
-                repo.refDatabase.getRefsByPrefix("refs/remotes/").forEach { ref ->
-                    if (ref.name.endsWith("/$targetBranch")) {
-                        logCommand.add(ref.objectId)
+                    // Add local branch
+                    val localRef = repo.resolve("refs/heads/$targetBranch")
+                    if (localRef != null) {
+                        logCommand.add(localRef)
                         hasStarted = true
                     }
-                }
 
-                if (!hasStarted) {
-                    repo.resolve("HEAD")?.let { logCommand.add(it) }
-                }
-
-                val localRefs = repo.refDatabase.getRefsByPrefix("refs/heads/")
-                    .map { walk.parseCommit(it.objectId) }
-                val remoteRefs = repo.refDatabase.getRefsByPrefix("refs/remotes/")
-                    .map { walk.parseCommit(it.objectId) }
-
-                val logs = logCommand.call()
-
-                for (rev in logs) {
-                    val author = rev.authorIdent
-                    val date = Date(rev.commitTime.toLong() * 1000)
-                    val currentCommit = walk.parseCommit(rev.id)
-
-                    val isLocal = localRefs.any { walk.isMergedInto(currentCommit, it) }
-                    val isRemote = remoteRefs.any { walk.isMergedInto(currentCommit, it) }
-
-                    val status = when {
-                        isLocal && isRemote -> CommitStatus.SYNCED
-                        isLocal -> CommitStatus.LOCAL_ONLY
-                        isRemote -> CommitStatus.REMOTE_ONLY
-                        else -> CommitStatus.UNKNOWN
+                    // Add all remote tracking branches with that name
+                    repo.refDatabase.getRefsByPrefix("refs/remotes/").forEach { ref ->
+                        if (ref.name.endsWith("/$targetBranch")) {
+                            logCommand.add(ref.objectId)
+                            hasStarted = true
+                        }
                     }
 
-                    commitList.add(
-                        CommitInfo(
-                            commitHash = rev.name,
-                            authorName = author.name ?: "Unknown",
-                            authorEmail = author.emailAddress ?: "",
-                            commitMessage = rev.shortMessage,
-                            commitDate = dateFormatter.format(date),
-                            status = status
-                        )
-                    )
-                }
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
+                    if (!hasStarted) {
+                        repo.resolve("HEAD")?.let { logCommand.add(it) }
+                    }
 
-        return@withContext commitList
-    }
+                    val localRefs = repo.refDatabase.getRefsByPrefix("refs/heads/")
+                        .map { walk.parseCommit(it.objectId) }
+                    val remoteRefs = repo.refDatabase.getRefsByPrefix("refs/remotes/")
+                        .map { walk.parseCommit(it.objectId) }
+
+                    val logs = logCommand.call()
+
+                    for (rev in logs) {
+                        val author = rev.authorIdent
+                        val date = Date(rev.commitTime.toLong() * 1000)
+                        val currentCommit = walk.parseCommit(rev.id)
+
+                        val isLocal = localRefs.any { walk.isMergedInto(currentCommit, it) }
+                        val isRemote = remoteRefs.any { walk.isMergedInto(currentCommit, it) }
+
+                        val status = when {
+                            isLocal && isRemote -> CommitStatus.SYNCED
+                            isLocal -> CommitStatus.LOCAL_ONLY
+                            isRemote -> CommitStatus.REMOTE_ONLY
+                            else -> CommitStatus.UNKNOWN
+                        }
+
+                        commitList.add(
+                            CommitInfo(
+                                commitHash = rev.name,
+                                authorName = author.name ?: "Unknown",
+                                authorEmail = author.emailAddress ?: "",
+                                commitMessage = rev.shortMessage,
+                                commitDate = dateFormatter.format(date),
+                                status = status
+                            )
+                        )
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+
+            return@withContext commitList
+        }
 
     suspend fun getBranches(repoPath: String): List<String> = withContext(Dispatchers.IO) {
         try {
@@ -321,26 +323,43 @@ class GitManager @Inject constructor() {
             }
         }
 
-    suspend fun fetch(repoPath: String, credentials: List<GitCredential>): Result<Unit> = withContext(Dispatchers.IO) {
-        val attempts = listOf<GitCredential?>(null) + credentials
-        var lastException: Exception? = null
+    suspend fun fetch(repoPath: String, credentials: List<GitCredential>): Result<Unit> =
+        withContext(Dispatchers.IO) {
+            val attempts = listOf<GitCredential?>(null) + credentials
+            var lastException: Exception? = null
 
-        for (cred in attempts) {
+            for (cred in attempts) {
+                try {
+                    Git.open(File(repoPath)).use { git ->
+                        val fetchCommand = git.fetch()
+                        if (cred != null) {
+                            fetchCommand.setCredentialsProvider(
+                                UsernamePasswordCredentialsProvider(cred.username, cred.token)
+                            )
+                        }
+                        fetchCommand.call()
+                        return@withContext Result.success(Unit)
+                    }
+                } catch (e: Exception) {
+                    lastException = e
+                }
+            }
+            Result.failure(lastException ?: Exception("Fetch failed"))
+        }
+
+    suspend fun getTrackingStatus(repoPath: String, branchName: String): Pair<Int, Int> =
+        withContext(Dispatchers.IO) {
             try {
                 Git.open(File(repoPath)).use { git ->
-                    val fetchCommand = git.fetch()
-                    if (cred != null) {
-                        fetchCommand.setCredentialsProvider(
-                            UsernamePasswordCredentialsProvider(cred.username, cred.token)
-                        )
+                    val status = BranchTrackingStatus.of(git.repository, branchName)
+                    if (status != null) {
+                        Pair(status.aheadCount, status.behindCount)
+                    } else {
+                        Pair(0, 0)
                     }
-                    fetchCommand.call()
-                    return@withContext Result.success(Unit)
                 }
             } catch (e: Exception) {
-                lastException = e
+                Pair(0, 0)
             }
         }
-        Result.failure(lastException ?: Exception("Fetch failed"))
-    }
 }
