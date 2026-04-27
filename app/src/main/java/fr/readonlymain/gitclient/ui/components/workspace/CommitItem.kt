@@ -2,6 +2,7 @@ package fr.readonlymain.gitclient.ui.components.workspace
 
 import android.content.ClipData
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement.spacedBy
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -19,7 +20,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
@@ -41,9 +41,42 @@ fun CommitItem(commit: CommitInfo) {
 
     val statusColor = when (commit.status) {
         CommitStatus.SYNCED -> MaterialTheme.colorScheme.primary
-        CommitStatus.LOCAL_ONLY -> Color(0xFF4CAF50) // Green
+        CommitStatus.LOCAL_ONLY -> MaterialTheme.colorScheme.primary
         CommitStatus.REMOTE_ONLY -> MaterialTheme.colorScheme.outline
         CommitStatus.UNKNOWN -> MaterialTheme.colorScheme.error
+    }
+
+    val commitShapeModifier = when (commit.status) {
+        CommitStatus.SYNCED -> Modifier
+            .height(shapeHeight)
+            .aspectRatio(1f)
+            .background(
+                color = statusColor,
+                shape = CircleShape
+            )
+
+        CommitStatus.LOCAL_ONLY -> Modifier
+            .height(shapeHeight)
+            .aspectRatio(1f)
+            .border(
+                width = 4.dp,
+                color = statusColor,
+                shape = CircleShape
+            )
+
+        else -> Modifier
+            .padding(horizontal = (shapeHeight / 2) - 2.dp)
+            .width(4.dp)
+            .height(shapeHeight)
+            .background(
+                color = statusColor,
+                shape = RoundedCornerShape(
+                    topStartPercent = 50,
+                    bottomStartPercent = 50,
+                    topEndPercent = 50,
+                    bottomEndPercent = 50
+                )
+            )
     }
 
     Box(
@@ -69,13 +102,7 @@ fun CommitItem(commit: CommitInfo) {
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
-            modifier = Modifier
-                .height(shapeHeight)
-                .aspectRatio(1f)
-                .background(
-                    color = statusColor,
-                    shape = CircleShape
-                )
+            modifier = commitShapeModifier
         )
         Text(
             commit.commitMessage,
