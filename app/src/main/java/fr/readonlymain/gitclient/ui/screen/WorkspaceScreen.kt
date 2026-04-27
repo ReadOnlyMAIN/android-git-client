@@ -99,9 +99,9 @@ fun WorkspaceScreen(
             },
             onSynchronize = { viewModel.onSynchronize() },
             needPull = viewModel.needPull.value,
-            onPull = { /**/ },
+            onPull = { viewModel.onPull() },
             needPush = viewModel.needPush.value,
-            onPush = { /**/ }
+            onPush = { viewModel.onPush() }
         )
 
         Column(
