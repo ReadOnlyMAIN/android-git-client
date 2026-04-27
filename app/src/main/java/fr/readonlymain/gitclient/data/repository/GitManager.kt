@@ -207,12 +207,36 @@ class GitManager @Inject constructor() {
                 val repo = git.repository
                 val walk = RevWalk(repo)
 
+                val targetBranch = if (branchName.isNullOrBlank()) repo.branch else branchName
+
+                val logCommand = git.log()
+                var hasStarted = false
+
+                // Add local branch
+                val localRef = repo.resolve("refs/heads/$targetBranch")
+                if (localRef != null) {
+                    logCommand.add(localRef)
+                    hasStarted = true
+                }
+
+                // Add all remote tracking branches with that name
+                repo.refDatabase.getRefsByPrefix("refs/remotes/").forEach { ref ->
+                    if (ref.name.endsWith("/$targetBranch")) {
+                        logCommand.add(ref.objectId)
+                        hasStarted = true
+                    }
+                }
+
+                if (!hasStarted) {
+                    repo.resolve("HEAD")?.let { logCommand.add(it) }
+                }
+
                 val localRefs = repo.refDatabase.getRefsByPrefix("refs/heads/")
                     .map { walk.parseCommit(it.objectId) }
                 val remoteRefs = repo.refDatabase.getRefsByPrefix("refs/remotes/")
                     .map { walk.parseCommit(it.objectId) }
 
-                val logs = git.log().call()
+                val logs = logCommand.call()
 
                 for (rev in logs) {
                     val author = rev.authorIdent
