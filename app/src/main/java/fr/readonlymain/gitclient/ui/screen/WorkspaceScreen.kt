@@ -1,6 +1,6 @@
 package fr.readonlymain.gitclient.ui.screen
 
-import android.widget.Toast
+import android.content.ClipData
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement.spacedBy
 import androidx.compose.foundation.layout.Box
@@ -29,30 +29,59 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.ClipEntry
+import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import fr.readonlymain.gitclient.data.model.UiEvent
 import fr.readonlymain.gitclient.ui.components.workspace.CommitItem
 import fr.readonlymain.gitclient.ui.components.workspace.WorkspaceToolbar
 import fr.readonlymain.gitclient.ui.viewmodel.WorkspaceViewModel
 
 @Composable
 fun WorkspaceScreen(
+    snackbarHostState: SnackbarHostState,
     viewModel: WorkspaceViewModel = hiltViewModel()
 ) {
-    val context = LocalContext.current
     val viewModel: WorkspaceViewModel = hiltViewModel()
+    val clipboard = LocalClipboard.current
 
     LaunchedEffect(Unit) {
-        viewModel.toastMessage.collect { message ->
-            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+        viewModel.uiEvent.collect { event ->
+            val result = when (event) {
+                is UiEvent.Error -> {
+                    snackbarHostState.showSnackbar(
+                        message = event.message,
+                        actionLabel = "Copy",
+                        duration = SnackbarDuration.Long
+                    )
+                }
+
+                is UiEvent.Success -> {
+                    snackbarHostState.showSnackbar(
+                        message = event.message,
+                        actionLabel = null,
+                        duration = SnackbarDuration.Short
+                    )
+                }
+            }
+
+            if (result == SnackbarResult.ActionPerformed && event is UiEvent.Error) {
+                clipboard.setClipEntry(
+                    ClipEntry(ClipData.newPlainText("error_log", event.message))
+                )
+            }
         }
     }
+
 
     Row(
         modifier = Modifier
@@ -155,7 +184,10 @@ fun WorkspaceScreen(
                             onClick = { /* doSomething() */ },
                             modifier = Modifier.size(48.dp)
                         ) {
-                            Icon(Icons.Outlined.KeyboardArrowUp, contentDescription = "Synchronize")
+                            Icon(
+                                Icons.Outlined.KeyboardArrowUp,
+                                contentDescription = "Synchronize"
+                            )
                         }
                         IconButton(
                             onClick = { /* doSomething() */ },

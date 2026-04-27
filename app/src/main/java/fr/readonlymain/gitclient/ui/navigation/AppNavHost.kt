@@ -1,6 +1,6 @@
 package fr.readonlymain.gitclient.ui.navigation
 
-import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -15,13 +15,16 @@ fun AppNavHost(
     navController: NavHostController,
     themeMode: ThemeMode,
     onThemeChange: (ThemeMode) -> Unit,
+    snackbarHostState: SnackbarHostState
 ) {
     NavHost(
         navController = navController,
         startDestination = Route.Workspace.route
     ) {
         composable(Route.Workspace.route) {
-            WorkspaceScreen()
+            WorkspaceScreen(
+                snackbarHostState = snackbarHostState
+            )
         }
         composable(Route.Repositories.route) {
             RepositoriesScreen()
