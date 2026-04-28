@@ -2,6 +2,7 @@ package fr.readonlymain.gitclient.ui.screen
 
 import android.content.ClipData
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement.spacedBy
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,6 +19,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CornerSize
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.KeyboardDoubleArrowDown
@@ -37,6 +39,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.unit.dp
@@ -133,7 +136,16 @@ fun WorkspaceScreen(
                             style = MaterialTheme.typography.headlineMedium
                         )
                         IconButton(
-                            onClick = { /* doSomething() */ },
+                            onClick = { viewModel.discardSelection() },
+                            modifier = Modifier.size(48.dp)
+                        ) {
+                            Icon(
+                                Icons.Outlined.Delete,
+                                contentDescription = "Discard"
+                            )
+                        }
+                        IconButton(
+                            onClick = { viewModel.stageSelection() },
                             modifier = Modifier.size(48.dp)
                         ) {
                             Icon(
@@ -142,7 +154,7 @@ fun WorkspaceScreen(
                             )
                         }
                         IconButton(
-                            onClick = { /* doSomething() */ },
+                            onClick = { viewModel.stageAll() },
                             modifier = Modifier.size(48.dp)
                         ) {
                             Icon(
@@ -158,6 +170,39 @@ fun WorkspaceScreen(
                             containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
                         )
                     ) {
+                        // Unstage modified files.
+                        val unstaged = viewModel.unstagedFiles.value
+
+                        if (unstaged.isEmpty()) {
+                            Text("No changes detected", modifier = Modifier.padding(16.dp))
+                        } else {
+                            val selectedFiles = viewModel.selectedUnstagedFiles.value
+
+                            LazyColumn {
+                                items(unstaged.toList()) { filePath ->
+                                    val isSelected = selectedFiles.contains(filePath)
+
+                                    Text(
+                                        text = filePath,
+                                        modifier = Modifier
+                                            .fillMaxWidth() // Important pour que toute la ligne soit cliquable
+                                            .clickable {
+                                                viewModel.toggleUnstagedFileSelection(
+                                                    filePath
+                                                )
+                                            }
+                                            .background(
+                                                if (isSelected) MaterialTheme.colorScheme.primaryContainer
+                                                else Color.Transparent
+                                            )
+                                            .padding(8.dp),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer
+                                        else MaterialTheme.colorScheme.onSurface
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -183,7 +228,7 @@ fun WorkspaceScreen(
                             style = MaterialTheme.typography.headlineMedium
                         )
                         IconButton(
-                            onClick = { /* doSomething() */ },
+                            onClick = { viewModel.unstageSelection() },
                             modifier = Modifier.size(48.dp)
                         ) {
                             Icon(
@@ -192,7 +237,7 @@ fun WorkspaceScreen(
                             )
                         }
                         IconButton(
-                            onClick = { /* doSomething() */ },
+                            onClick = { viewModel.unstageAll() },
                             modifier = Modifier.size(48.dp)
                         ) {
                             Icon(
@@ -208,7 +253,38 @@ fun WorkspaceScreen(
                             containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
                         )
                     ) {
+                        val staged = viewModel.stagedFiles.value
 
+                        if (staged.isEmpty()) {
+                            Text("No changes staged", modifier = Modifier.padding(16.dp))
+                        } else {
+                            val selectedFiles = viewModel.selectedStagedFiles.value
+
+                            LazyColumn {
+                                items(staged.toList()) { filePath ->
+                                    val isSelected = selectedFiles.contains(filePath)
+
+                                    Text(
+                                        text = filePath,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable {
+                                                viewModel.toggleStagedFileSelection(
+                                                    filePath
+                                                )
+                                            }
+                                            .background(
+                                                if (isSelected) MaterialTheme.colorScheme.primaryContainer
+                                                else Color.Transparent
+                                            )
+                                            .padding(8.dp),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer
+                                        else MaterialTheme.colorScheme.onSurface
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
             }

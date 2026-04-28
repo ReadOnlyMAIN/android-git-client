@@ -12,6 +12,7 @@ import kotlinx.coroutines.withContext
 import org.eclipse.jgit.api.CreateBranchCommand
 import org.eclipse.jgit.api.Git
 import org.eclipse.jgit.api.ListBranchCommand
+import org.eclipse.jgit.api.ResetCommand
 import org.eclipse.jgit.lib.BranchTrackingStatus
 import org.eclipse.jgit.lib.ProgressMonitor
 import org.eclipse.jgit.lib.Repository
@@ -36,6 +37,7 @@ import javax.inject.Singleton
  */
 @Singleton
 class GitManager @Inject constructor() {
+    //region Repo Management
     /**
      * Clones a Git repository to a local directory.
      *
@@ -185,7 +187,183 @@ class GitManager @Inject constructor() {
             CloneResult("Can't open repository: ${e.localizedMessage}", false)
         }
     }
+    //endregion
 
+    //region Branch Management
+    suspend fun getBranches(repoPath: String): List<String> = withContext(Dispatchers.IO) {
+        try {
+            Git.open(File(repoPath)).use { git ->
+                git.branchList().setListMode(ListBranchCommand.ListMode.ALL)
+                    .call()
+                    .map { ref ->
+                        Repository.shortenRefName(ref.name)
+                    }
+            }
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
+
+    suspend fun getBranchesFullRefs(repoPath: String): Result<List<String>> =
+        withContext(Dispatchers.IO) {
+            try {
+                Git.open(File(repoPath)).use { git ->
+                    Result.success(
+                        git.branchList().setListMode(ListBranchCommand.ListMode.ALL)
+                            .call()
+                            .map { ref ->
+                                ref.name
+                            }
+                    )
+                }
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+
+    suspend fun checkoutBranch(repoPath: String, branch: Branch): Result<String> =
+        withContext(Dispatchers.IO) {
+            try {
+                Git.open(File(repoPath)).use { git ->
+                    val command = git.checkout().setName(branch.name)
+
+                    if (!branch.isLocal && branch.isRemote && branch.remoteRef != null) {
+                        command.setCreateBranch(true)
+                            .setStartPoint(branch.remoteRef) // Utilise "refs/remotes/origin/main"
+                            .setUpstreamMode(CreateBranchCommand.SetupUpstreamMode.TRACK)
+                    }
+
+                    command.call()
+                    Result.success(branch.name)
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                Result.failure(
+                    Exception(
+                        "Error while checkout on ${branch.name}: ${e.localizedMessage}",
+                        e
+                    )
+                )
+            }
+        }
+
+    suspend fun getTrackingStatus(repoPath: String, branchName: String): Result<Pair<Int, Int>> =
+        withContext(Dispatchers.IO) {
+            try {
+                Git.open(File(repoPath)).use { git ->
+                    val status = BranchTrackingStatus.of(git.repository, branchName)
+                    if (status != null) {
+                        Result.success(Pair(status.aheadCount, status.behindCount))
+                    } else {
+                        Result.success(Pair(0, 0))
+                    }
+                }
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+    //endregion
+
+    //region Remote Operations
+    suspend fun fetch(repoPath: String, credentials: List<GitCredential>): Result<Unit> =
+        withContext(Dispatchers.IO) {
+            val attempts = listOf<GitCredential?>(null) + credentials
+            var lastException: Exception? = null
+
+            for (cred in attempts) {
+                try {
+                    Git.open(File(repoPath)).use { git ->
+                        val fetchCommand = git.fetch()
+                        if (cred != null) {
+                            fetchCommand.setCredentialsProvider(
+                                UsernamePasswordCredentialsProvider(cred.username, cred.token)
+                            )
+                        }
+                        fetchCommand.call()
+                        return@withContext Result.success(Unit)
+                    }
+                } catch (e: Exception) {
+                    lastException = e
+                }
+            }
+            Result.failure(lastException ?: Exception("Fetch failed"))
+        }
+
+    suspend fun pull(repoPath: String, credentials: List<GitCredential>): Result<Unit> =
+        withContext(Dispatchers.IO) {
+            val attempts = listOf<GitCredential?>(null) + credentials
+            var lastException: Exception? = null
+
+            for (cred in attempts) {
+                try {
+                    Git.open(File(repoPath)).use { git ->
+                        val pullCommand = git.pull()
+
+                        if (cred != null) {
+                            pullCommand.setCredentialsProvider(
+                                UsernamePasswordCredentialsProvider(cred.username, cred.token)
+                            )
+                        }
+
+                        val result = pullCommand.call()
+
+                        if (result.isSuccessful) {
+                            return@withContext Result.success(Unit)
+                        } else {
+                            val mergeStatus = result.mergeResult?.mergeStatus ?: "Unknown"
+                            lastException = Exception("Pull failed: $mergeStatus")
+                        }
+                    }
+                } catch (e: Exception) {
+                    lastException = e
+                }
+            }
+            Result.failure(lastException ?: Exception("Pull failed"))
+        }
+
+    suspend fun push(repoPath: String, credentials: List<GitCredential>): Result<Unit> =
+        withContext(Dispatchers.IO) {
+            val attempts = listOf<GitCredential?>(null) + credentials
+            var lastException: Exception? = null
+
+            for (cred in attempts) {
+                try {
+                    Git.open(File(repoPath)).use { git ->
+                        val pushCommand = git.push()
+
+                        if (cred != null) {
+                            pushCommand.setCredentialsProvider(
+                                UsernamePasswordCredentialsProvider(cred.username, cred.token)
+                            )
+                        }
+
+                        val pushResults = pushCommand.call()
+
+                        pushResults.forEach { pushResult ->
+                            pushResult.remoteUpdates.forEach { update ->
+                                when (update.status) {
+                                    RemoteRefUpdate.Status.OK,
+                                    RemoteRefUpdate.Status.UP_TO_DATE -> {
+                                    }
+
+                                    else -> {
+                                        throw Exception("Push failed for ${update.remoteName}: ${update.status}")
+                                    }
+                                }
+                            }
+                        }
+                        return@withContext Result.success(Unit)
+                    }
+
+                } catch (e: Exception) {
+                    lastException = e
+                }
+            }
+            Result.failure(lastException ?: Exception("Push failed"))
+        }
+    //endregion
+
+    //region Commit Management
     /**
      * Retrieves the list of commits from the current branch of a local Git repository.
      *
@@ -274,166 +452,128 @@ class GitManager @Inject constructor() {
 
             return@withContext commitList
         }
+    //endregion
 
-    suspend fun getBranches(repoPath: String): List<String> = withContext(Dispatchers.IO) {
+    //region Status & Working Directory
+    suspend fun getRepoStatus(repoPath: String): Map<String, Set<String>> =
+        withContext(Dispatchers.IO) {
+            Git.open(File(repoPath)).use { git ->
+                val status = git.status().call()
+                mapOf(
+                    "unstaged" to (status.modified + status.untracked + status.missing),
+                    "staged" to (status.added + status.changed + status.removed)
+                )
+            }
+        }
+
+    suspend fun resetRepository(repoPath: String): Result<Unit> = withContext(Dispatchers.IO) {
         try {
             Git.open(File(repoPath)).use { git ->
-                git.branchList().setListMode(ListBranchCommand.ListMode.ALL)
-                    .call()
-                    .map { ref ->
-                        Repository.shortenRefName(ref.name)
-                    }
+                git.reset().setMode(ResetCommand.ResetType.HARD).call()
+                git.clean().setCleanDirectories(true).setIgnore(false).call()
+                Result.success(Unit)
             }
-        } catch (_: Exception) {
-            emptyList()
+        } catch (e: Exception) {
+            Result.failure(e)
         }
     }
 
-    suspend fun getBranchesFullRefs(repoPath: String): List<String> = withContext(Dispatchers.IO) {
-        try {
-            Git.open(File(repoPath)).use { git ->
-                git.branchList().setListMode(ListBranchCommand.ListMode.ALL)
-                    .call()
-                    .map { ref ->
-                        ref.name
-                    }
-            }
-        } catch (_: Exception) {
-            emptyList()
-        }
-    }
-
-    suspend fun checkoutBranch(repoPath: String, branch: Branch): String =
+    suspend fun discardFiles(repoPath: String, filePatterns: List<String>): Result<Unit> =
         withContext(Dispatchers.IO) {
             try {
                 Git.open(File(repoPath)).use { git ->
-                    val command = git.checkout().setName(branch.name)
+                    val status = git.status().call()
+                    val trackedToCheckout = mutableListOf<String>()
+                    val untrackedToDelete = mutableListOf<String>()
 
-                    if (!branch.isLocal && branch.isRemote && branch.remoteRef != null) {
-                        command.setCreateBranch(true)
-                            .setStartPoint(branch.remoteRef) // Utilise "refs/remotes/origin/main"
-                            .setUpstreamMode(CreateBranchCommand.SetupUpstreamMode.TRACK)
-                    }
-
-                    command.call()
-                    return@withContext branch.name
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
-                return@withContext branch.name
-            }
-        }
-
-    suspend fun fetch(repoPath: String, credentials: List<GitCredential>): Result<Unit> =
-        withContext(Dispatchers.IO) {
-            val attempts = listOf<GitCredential?>(null) + credentials
-            var lastException: Exception? = null
-
-            for (cred in attempts) {
-                try {
-                    Git.open(File(repoPath)).use { git ->
-                        val fetchCommand = git.fetch()
-                        if (cred != null) {
-                            fetchCommand.setCredentialsProvider(
-                                UsernamePasswordCredentialsProvider(cred.username, cred.token)
-                            )
-                        }
-                        fetchCommand.call()
-                        return@withContext Result.success(Unit)
-                    }
-                } catch (e: Exception) {
-                    lastException = e
-                }
-            }
-            Result.failure(lastException ?: Exception("Fetch failed"))
-        }
-
-    suspend fun getTrackingStatus(repoPath: String, branchName: String): Pair<Int, Int> =
-        withContext(Dispatchers.IO) {
-            try {
-                Git.open(File(repoPath)).use { git ->
-                    val status = BranchTrackingStatus.of(git.repository, branchName)
-                    if (status != null) {
-                        Pair(status.aheadCount, status.behindCount)
-                    } else {
-                        Pair(0, 0)
-                    }
-                }
-            } catch (e: Exception) {
-                Pair(0, 0)
-            }
-        }
-
-    suspend fun pull(repoPath: String, credentials: List<GitCredential>): Result<Unit> =
-        withContext(Dispatchers.IO) {
-            val attempts = listOf<GitCredential?>(null) + credentials
-            var lastException: Exception? = null
-
-            for (cred in attempts) {
-                try {
-                    Git.open(File(repoPath)).use { git ->
-                        val pullCommand = git.pull()
-
-                        if (cred != null) {
-                            pullCommand.setCredentialsProvider(
-                                UsernamePasswordCredentialsProvider(cred.username, cred.token)
-                            )
-                        }
-
-                        val result = pullCommand.call()
-
-                        if (result.isSuccessful) {
-                            return@withContext Result.success(Unit)
+                    filePatterns.forEach { path ->
+                        if (status.untracked.contains(path)) {
+                            untrackedToDelete.add(path)
                         } else {
-                            val mergeStatus = result.mergeResult?.mergeStatus ?: "Unknown"
-                            lastException = Exception("Pull failed: $mergeStatus")
+                            trackedToCheckout.add(path)
                         }
                     }
-                } catch (e: Exception) {
-                    lastException = e
-                }
-            }
-            Result.failure(lastException ?: Exception("Pull failed"))
-        }
 
-    suspend fun push(repoPath: String, credentials: List<GitCredential>): Result<Unit> =
+                    if (trackedToCheckout.isNotEmpty()) {
+                        val checkout = git.checkout()
+                        trackedToCheckout.forEach { checkout.addPath(it) }
+                        checkout.call()
+                    }
+
+                    untrackedToDelete.forEach { path ->
+                        File(repoPath, path).delete()
+                    }
+
+                    Result.success(Unit)
+                }
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+    //endregion
+
+    //region Index & Staging Management
+    suspend fun stageFiles(repoPath: String, filePatterns: List<String>): Result<Unit> =
         withContext(Dispatchers.IO) {
-            val attempts = listOf<GitCredential?>(null) + credentials
-            var lastException: Exception? = null
+            try {
+                Git.open(File(repoPath)).use { git ->
+                    val status = git.status().call()
+                    val addCommand = git.add()
+                    val rmCommand = git.rm()
+                    var hasAdd = false
+                    var hasRm = false
 
-            for (cred in attempts) {
-                try {
-                    Git.open(File(repoPath)).use { git ->
-                        val pushCommand = git.push()
-
-                        if (cred != null) {
-                            pushCommand.setCredentialsProvider(
-                                UsernamePasswordCredentialsProvider(cred.username, cred.token)
-                            )
+                    filePatterns.forEach { pattern ->
+                        if (status.missing.contains(pattern)) {
+                            rmCommand.addFilepattern(pattern)
+                            hasRm = true
+                        } else {
+                            addCommand.addFilepattern(pattern)
+                            hasAdd = true
                         }
-
-                        val pushResults = pushCommand.call()
-
-                        pushResults.forEach { pushResult ->
-                            pushResult.remoteUpdates.forEach { update ->
-                                when (update.status) {
-                                    RemoteRefUpdate.Status.OK,
-                                    RemoteRefUpdate.Status.UP_TO_DATE -> {
-                                    }
-
-                                    else -> {
-                                        throw Exception("Push failed for ${update.remoteName}: ${update.status}")
-                                    }
-                                }
-                            }
-                        }
-                        return@withContext Result.success(Unit)
                     }
 
-                } catch (e: Exception) {
-                    lastException = e
+                    if (hasAdd) addCommand.call()
+                    if (hasRm) rmCommand.call()
+                    Result.success(Unit)
                 }
+            } catch (e: Exception) {
+                Result.failure(e)
             }
-            Result.failure(lastException ?: Exception("Push failed"))
         }
+
+    suspend fun stageAll(repoPath: String): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            Git.open(File(repoPath)).use { git ->
+                git.add().addFilepattern(".").call()
+
+                val status = git.status().call()
+                if (status.missing.isNotEmpty()) {
+                    val rm = git.rm()
+                    status.missing.forEach { rm.addFilepattern(it) }
+                    rm.call()
+                }
+                Result.success(Unit)
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun unstageFiles(repoPath: String, filePatterns: List<String>? = null): Result<Unit> =
+        withContext(Dispatchers.IO) {
+            try {
+                Git.open(File(repoPath)).use { git ->
+                    val reset = git.reset()
+
+                    filePatterns?.forEach { reset.addPath(it) }
+
+                    reset.call()
+                    Result.success(Unit)
+                }
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+    //endregion
 }
