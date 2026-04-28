@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CornerSize
+import androidx.compose.foundation.text.input.delete
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Delete
@@ -56,6 +57,8 @@ fun WorkspaceScreen(
 ) {
     val viewModel: WorkspaceViewModel = hiltViewModel()
     val clipboard = LocalClipboard.current
+
+    val commitMessageState = rememberTextFieldState()
 
     LaunchedEffect(Unit) {
         viewModel.uiEvent.collect { event ->
@@ -329,11 +332,15 @@ fun WorkspaceScreen(
                     OutlinedTextField(
                         modifier = Modifier
                             .weight(1f),
-                        state = rememberTextFieldState(),
+                        state = commitMessageState,
                         label = { Text("Commit message") },
                     )
                     Button(
-                        onClick = { /*TODO*/ }
+                        onClick = {
+                            viewModel.onCommit(commitMessageState.text.toString()) {
+                                commitMessageState.edit { delete(0, length) }
+                            }
+                        }
                     ) {
                         Text(
                             "Commit",

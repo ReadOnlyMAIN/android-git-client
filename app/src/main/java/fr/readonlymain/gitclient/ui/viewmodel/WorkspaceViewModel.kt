@@ -9,6 +9,7 @@ import fr.readonlymain.gitclient.data.model.CommitInfo
 import fr.readonlymain.gitclient.data.model.Repository
 import fr.readonlymain.gitclient.data.model.UiEvent
 import fr.readonlymain.gitclient.data.preferences.CredentialsPreferences
+import fr.readonlymain.gitclient.data.preferences.GitConfigPreferences
 import fr.readonlymain.gitclient.data.preferences.RepositoriesPreferences
 import fr.readonlymain.gitclient.data.repository.GitManager
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -22,7 +23,8 @@ import org.eclipse.jgit.lib.Repository as JGitRepository
 class WorkspaceViewModel @Inject constructor(
     private val gitManager: GitManager,
     private val repositoriesPreferences: RepositoriesPreferences,
-    private val credentialsPreferences: CredentialsPreferences
+    private val credentialsPreferences: CredentialsPreferences,
+    private val gitConfigPreferences: GitConfigPreferences
 ) : ViewModel() {
 
     private val _uiEvent = MutableSharedFlow<UiEvent>()
@@ -380,5 +382,34 @@ class WorkspaceViewModel @Inject constructor(
 
         return branchMap.values.toList().sortedBy { it.name }
     }
+
     //endregion
+
+    fun onCommit(message: String, onCommitSuccess: () -> Unit) {
+        viewModelScope.launch {
+            val selectedRepo = repositoriesPreferences.selectedRepoFlow.first() ?: return@launch
+            val gitConfig = gitConfigPreferences.gitConfigurationFlow.first()
+
+            if (message.isBlank()) {
+                return@launch
+            }
+            if (stagedFiles.value.isEmpty()) {
+                return@launch
+            }
+
+            val result = gitManager.commit(selectedRepo, gitConfig, message)
+
+            result.onSuccess {
+                refreshCommitList(selectedRepo)
+                refreshRepoStatus(selectedRepo)
+
+                _uiEvent.emit(UiEvent.Success("Successfully commited"))
+                onCommitSuccess()
+            }.onFailure { error ->
+                _uiEvent.emit(UiEvent.Error("Error: Failed to commit (${error.localizedMessage})"))
+            }
+        }
+    }
+
+
 }

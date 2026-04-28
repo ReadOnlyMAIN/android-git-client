@@ -5,6 +5,7 @@ import fr.readonlymain.gitclient.data.model.Branch
 import fr.readonlymain.gitclient.data.model.CloneResult
 import fr.readonlymain.gitclient.data.model.CommitInfo
 import fr.readonlymain.gitclient.data.model.CommitStatus
+import fr.readonlymain.gitclient.data.model.GitConfig
 import fr.readonlymain.gitclient.data.model.GitCredential
 import fr.readonlymain.gitclient.utils.resolveUriToPath
 import kotlinx.coroutines.Dispatchers
@@ -575,5 +576,22 @@ class GitManager @Inject constructor() {
                 Result.failure(e)
             }
         }
+
     //endregion
+    suspend fun commit(repoPath: String, gitConfig: GitConfig, message: String): Result<Unit> =
+        withContext(Dispatchers.IO) {
+            try {
+                Git.open(File(repoPath)).use { git ->
+                    git.commit()
+                        .setMessage(message)
+                        .setAuthor(gitConfig.name, gitConfig.email)
+                        .call()
+                    Result.success(Unit)
+                }
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+
+
 }
