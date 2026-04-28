@@ -7,6 +7,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import fr.readonlymain.gitclient.data.preferences.CredentialsPreferences
+import fr.readonlymain.gitclient.data.preferences.GitConfigPreferences
 import fr.readonlymain.gitclient.data.preferences.RepositoriesPreferences
 import fr.readonlymain.gitclient.data.preferences.ThemePreferences
 import javax.inject.Singleton
@@ -31,5 +32,11 @@ object DataModule {
     @Singleton
     fun provideThemePreferences(@ApplicationContext context: Context): ThemePreferences {
         return ThemePreferences(context)
+    }
+
+    @Provides
+    @Singleton
+    fun provideGitConfigPreferences(@ApplicationContext context: Context): GitConfigPreferences {
+        return GitConfigPreferences(context)
     }
 }
