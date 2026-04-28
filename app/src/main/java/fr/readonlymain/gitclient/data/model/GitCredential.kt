@@ -10,4 +10,8 @@ data class GitCredential(
     val username: String,
     val token: String,
     val providerUrl: String = "https://github.com"
-)
+) {
+    override fun toString(): String {
+        return "GitCredential(id=$id, accountName=$accountName, providerUrl=$providerUrl, username=********, token=********)"
+    }
+}
