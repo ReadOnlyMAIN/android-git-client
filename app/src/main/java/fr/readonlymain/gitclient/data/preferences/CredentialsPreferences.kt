@@ -81,7 +81,7 @@ class CredentialsPreferences(private val context: Context) {
             .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
             .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
             .setKeySize(256)
-            .setIsStrongBoxBacked(true)
+            //.setIsStrongBoxBacked(true)
             .build()
 
         keyGenerator.init(keyGenParameterSpec)
