@@ -1,20 +1,22 @@
 package fr.readonlymain.gitclient.data.model
 
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Inventory2
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.TableRestaurant
-import androidx.compose.material.icons.outlined.Inventory2
-import androidx.compose.material.icons.outlined.Settings
-import androidx.compose.material.icons.outlined.TableRestaurant
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.annotation.DrawableRes
+import fr.readonlymain.gitclient.R
 
 enum class AppDestinations(
     val label: String,
-    val selectedIcon: ImageVector,
-    val unselectedIcon: ImageVector
+    @DrawableRes val selectedIcon: Int,
+    @DrawableRes val unselectedIcon: Int
 ) {
-    WORKSPACE("Workspace", Icons.Filled.TableRestaurant, Icons.Outlined.TableRestaurant),
-    REPOSITORIES("Repositories", Icons.Filled.Inventory2, Icons.Outlined.Inventory2),
-    SETTINGS("Settings", Icons.Filled.Settings, Icons.Outlined.Settings),
+    WORKSPACE(
+        "Workspace",
+        R.drawable.ic_filled_table_restaurant,
+        R.drawable.ic_outlined_table_restaurant
+    ),
+    REPOSITORIES(
+        "Repositories",
+        R.drawable.ic_filled_inventory_2,
+        R.drawable.ic_outlined_inventory_2
+    ),
+    SETTINGS("Settings", R.drawable.ic_filled_settings, R.drawable.ic_outlined_settings),
 }

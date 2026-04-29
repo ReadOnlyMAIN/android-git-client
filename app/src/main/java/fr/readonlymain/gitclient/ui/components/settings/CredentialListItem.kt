@@ -1,7 +1,5 @@
 package fr.readonlymain.gitclient.ui.components.settings
 
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
@@ -11,6 +9,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
+import fr.readonlymain.gitclient.R
 
 /**
  * A composable component that represents a single credential entry within a list.
@@ -38,7 +38,7 @@ fun CredentialListItem(
         supportingContent = { Text(username, style = MaterialTheme.typography.bodySmall) },
         leadingContent = {
             Icon(
-                imageVector = Icons.Filled.AccountCircle,
+                painterResource(id = R.drawable.ic_filled_account_circle),
                 contentDescription = null
             )
         },

@@ -1,8 +1,6 @@
 package fr.readonlymain.gitclient.ui.components.repositories
 
 import androidx.compose.foundation.clickable
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -15,6 +13,8 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
+import fr.readonlymain.gitclient.R
 import fr.readonlymain.gitclient.data.model.Repository
 
 /**
@@ -55,7 +55,7 @@ fun RepositoryCard(
             },
             leadingContent = {
                 Icon(
-                    imageVector = Icons.Filled.Inventory2,
+                    painter = painterResource(id = R.drawable.ic_filled_inventory_2),
                     contentDescription = null
                 )
             },

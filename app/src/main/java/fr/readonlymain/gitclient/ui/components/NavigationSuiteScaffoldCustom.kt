@@ -6,9 +6,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.MenuOpen
-import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -31,9 +28,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
+import fr.readonlymain.gitclient.R
 import fr.readonlymain.gitclient.data.model.AppDestinations
 import kotlinx.coroutines.launch
 
@@ -115,9 +114,9 @@ fun NavigationSuiteScaffoldCustom(
                 onClick = { scope.launch { railState.toggle() } },
             ) {
                 if (railExpanded) {
-                    Icon(Icons.AutoMirrored.Filled.MenuOpen, "Collapse rail")
+                    Icon(painterResource(id = R.drawable.ic_filled_menu_open), "Collapse rail")
                 } else {
-                    Icon(Icons.Filled.Menu, "Expand rail")
+                    Icon(painterResource(id = R.drawable.ic_filled_menu), "Expand rail")
                 }
             }
         }
@@ -147,7 +146,7 @@ fun NavigationSuiteScaffoldCustom(
                                 WideNavigationRailItem(
                                     icon = {
                                         Icon(
-                                            imageVector = if (currentRoute == destination.label) destination.selectedIcon else destination.unselectedIcon,
+                                            painter = painterResource(if (currentRoute == destination.label) destination.selectedIcon else destination.unselectedIcon),
                                             contentDescription = destination.label
                                         )
                                     },
@@ -170,7 +169,7 @@ fun NavigationSuiteScaffoldCustom(
                                 navigationSuiteType = navSuiteType,
                                 icon = {
                                     Icon(
-                                        imageVector = if (currentRoute == destination.label) destination.selectedIcon else destination.unselectedIcon,
+                                        painter = painterResource(if (currentRoute == destination.label) destination.selectedIcon else destination.unselectedIcon),
                                         contentDescription = destination.label
                                     )
                                 },
