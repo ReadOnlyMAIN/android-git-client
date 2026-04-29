@@ -10,6 +10,9 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import fr.readonlymain.gitclient.data.model.CloneResult
 import fr.readonlymain.gitclient.data.model.GitCredential
+import fr.readonlymain.gitclient.data.model.Repository
+import fr.readonlymain.gitclient.data.model.UiEvent
+import fr.readonlymain.gitclient.data.preferences.RepositoriesPreferences
 import fr.readonlymain.gitclient.data.repository.GitManager
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
@@ -29,7 +32,8 @@ import javax.inject.Inject
  */
 @HiltViewModel
 class RepositoriesViewModel @Inject constructor(
-    private val gitManager: GitManager
+    private val gitManager: GitManager,
+    private val repositoriesPreferences: RepositoriesPreferences,
 ) : ViewModel() {
     var isCloning by mutableStateOf(false)
         private set
@@ -40,7 +44,7 @@ class RepositoriesViewModel @Inject constructor(
     var progress by mutableFloatStateOf(0f)
         private set
 
-    private val _uiEvent = MutableSharedFlow<CloneResult>()
+    private val _uiEvent = MutableSharedFlow<UiEvent>()
     val uiEvent = _uiEvent.asSharedFlow()
 
     /**
@@ -54,7 +58,12 @@ class RepositoriesViewModel @Inject constructor(
                 progress = p
             }
             isCloning = false
-            _uiEvent.emit(result)
+            result.onSuccess { cloneResult ->
+                saveRepoData(cloneResult.repoUrl, cloneResult.folderPath, cloneResult.username)
+                _uiEvent.emit(UiEvent.Success("Successfully cloned repository."))
+            }.onFailure { error ->
+                _uiEvent.emit(UiEvent.Error("Error: Can't clone repository ($error)"))
+            }
         }
     }
 
@@ -69,7 +78,36 @@ class RepositoriesViewModel @Inject constructor(
     fun startImport(uri: Uri) {
         viewModelScope.launch {
             val result = gitManager.importExistingRepo(uri)
-            _uiEvent.emit(result)
+            result.onSuccess { cloneResult ->
+                saveRepoData(cloneResult.repoUrl, cloneResult.folderPath, cloneResult.username)
+                _uiEvent.emit(UiEvent.Success("Successfully imported repository."))
+            }.onFailure { error ->
+                _uiEvent.emit(UiEvent.Error("Error: Can't import repository ($error)"))
+            }
+        }
+    }
+
+    private suspend fun saveRepoData(repoUrl: String, folderPath: String, username: String) {
+        val folderName = folderPath.substringAfterLast("/")
+
+        repositoriesPreferences.addRepository(
+            Repository(
+                name = folderName,
+                remoteUrl = repoUrl,
+                localPath = folderPath,
+                username = username
+            )
+        )
+    }
+
+    fun editRepository(updatedRepo: Repository) {
+        viewModelScope.launch {
+            val result = gitManager.editRepository(updatedRepo)
+            result.onSuccess {
+                repositoriesPreferences.updateRepository(updatedRepo)
+            }.onFailure { error ->
+                _uiEvent.emit(UiEvent.Error("Error: Can't update repository ${updatedRepo.name} ($error)"))
+            }
         }
     }
 }
