@@ -32,9 +32,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
+import fr.readonlymain.gitclient.data.model.GitConfig
 import fr.readonlymain.gitclient.data.model.GitCredential
 import fr.readonlymain.gitclient.data.preferences.CredentialsPreferences
+import fr.readonlymain.gitclient.data.preferences.GitConfigPreferences
 import fr.readonlymain.gitclient.ui.components.settings.CredentialListItem
+import fr.readonlymain.gitclient.ui.components.settings.GitConfigDialog
 import fr.readonlymain.gitclient.ui.components.settings.GitCredentialDialog
 import fr.readonlymain.gitclient.ui.theme.ThemeMode
 import kotlinx.coroutines.launch
@@ -52,7 +55,11 @@ fun SettingsScreen(
 
     val credentials by credentialsPreferences.credentialsFlow.collectAsState(initial = emptyList())
 
+    val gitConfigPreferences = remember { GitConfigPreferences(context) }
+    val gitConfig by gitConfigPreferences.gitConfigurationFlow.collectAsState(initial = GitConfig())
+
     var showAddDialog by remember { mutableStateOf(false) }
+    var showGitConfigDialog by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -117,6 +124,48 @@ fun SettingsScreen(
         Spacer(Modifier.height(24.dp))
 
         Text(
+            text = "Git configuration",
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.padding(bottom = 8.dp, start = 4.dp)
+        )
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = MaterialTheme.shapes.large,
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surface
+            )
+        ) {
+            Column {
+                ListItem(
+                    modifier = Modifier.selectable(
+                        selected = false,
+                        onClick = { showGitConfigDialog = true },
+                        role = Role.Button
+                    ),
+                    colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                    headlineContent = {
+                        Text(
+                            when {
+                                gitConfig.name.isNotBlank() -> gitConfig.name
+                                else -> "No configuration"
+                            }
+                        )
+                    },
+                    supportingContent = {
+                        Text(
+                            gitConfig.email,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                )
+            }
+        }
+
+        Spacer(Modifier.height(24.dp))
+
+        Text(
             text = "Git credentials (HTTP)",
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.primary,
@@ -135,7 +184,7 @@ fun SettingsScreen(
                     CredentialListItem(
                         username = credential.username,
                         accountName = credential.accountName,
-                        onEdit = { /* Implémenter l'édition si nécessaire */ },
+                        onEdit = { /* TODO: implement editing */ },
                         onDelete = {
                             scope.launch {
                                 credentialsPreferences.deleteCredential(credential.id)
@@ -188,6 +237,24 @@ fun SettingsScreen(
                         )
                     )
                     showAddDialog = false
+                }
+            }
+        )
+    }
+
+    if (showGitConfigDialog) {
+        GitConfigDialog(
+            previousConfig = gitConfig,
+            onDismiss = { showGitConfigDialog = false },
+            onConfirm = { name, email ->
+                scope.launch {
+                    gitConfigPreferences.setGitConfig(
+                        GitConfig(
+                            name = name,
+                            email = email,
+                        )
+                    )
+                    showGitConfigDialog = false
                 }
             }
         )

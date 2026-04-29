@@ -1,51 +1,57 @@
 package fr.readonlymain.gitclient.ui.components.workspace
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement.spacedBy
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.Inventory2
 import androidx.compose.material.icons.outlined.Sync
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
 import fr.readonlymain.gitclient.R
+import fr.readonlymain.gitclient.data.model.Branch
+import fr.readonlymain.gitclient.data.model.Repository
+
+sealed class WorkspaceToolbarDialogState {
+    data object None : WorkspaceToolbarDialogState()
+    data object RepositorySelection : WorkspaceToolbarDialogState()
+    data object BranchSelection : WorkspaceToolbarDialogState()
+}
 
 @Composable
 fun WorkspaceToolbar(
-    onNewRepository: () -> Unit,
-    onNewBranch: () -> Unit,
+    repositories: List<Repository>,
+    branches: List<Branch>,
+    onRepositorySelected: (String) -> Unit,
+    onBranchSelected: (Branch) -> Unit,
     onSynchronize: () -> Unit,
+    needPull: Boolean,
     onPull: () -> Unit,
+    needPush: Boolean,
     onPush: () -> Unit
 ) {
-    var showRepoDialog by remember { mutableStateOf(false) }
+    var activeDialog by remember {
+        mutableStateOf<WorkspaceToolbarDialogState>(
+            WorkspaceToolbarDialogState.None
+        )
+    }
 
     Card(
         modifier = Modifier
@@ -60,7 +66,7 @@ fun WorkspaceToolbar(
             verticalArrangement = spacedBy(16.dp)
         ) {
             IconButton(
-                onClick = { showRepoDialog = true },
+                onClick = { activeDialog = WorkspaceToolbarDialogState.RepositorySelection },
                 modifier = Modifier.size(48.dp),
                 shape = RoundedCornerShape(8.dp),
                 colors = IconButtonDefaults.filledTonalIconButtonColors()
@@ -68,7 +74,7 @@ fun WorkspaceToolbar(
                 Icon(Icons.Outlined.Inventory2, contentDescription = "Select repository")
             }
             IconButton(
-                onClick = { /* doSomething() */ },
+                onClick = { activeDialog = WorkspaceToolbarDialogState.BranchSelection },
                 modifier = Modifier.size(48.dp),
                 shape = RoundedCornerShape(8.dp),
                 colors = IconButtonDefaults.filledTonalIconButtonColors()
@@ -79,84 +85,72 @@ fun WorkspaceToolbar(
                 )
             }
             IconButton(
-                onClick = { /* doSomething() */ },
+                onClick = { onSynchronize() },
                 modifier = Modifier.size(48.dp)
             ) {
                 Icon(Icons.Outlined.Sync, contentDescription = "Synchronize")
             }
+
             IconButton(
-                onClick = { /* doSomething() */ },
+                onClick = { onPull() },
                 modifier = Modifier.size(48.dp)
             ) {
-                Icon(
-                    painter = painterResource(id = R.drawable.ic_outlined_download),
-                    contentDescription = "Pull"
-                )
-            }
-            IconButton(
-                onClick = { /* doSomething() */ },
-                modifier = Modifier.size(48.dp)
-            ) {
-                Icon(
-                    painter = painterResource(id = R.drawable.ic_outlined_upload),
-                    contentDescription = "Push"
-                )
-            }
-        }
-    }
-
-    if (showRepoDialog) {
-        RepositorySelectorDialog(
-            onDismiss = { showRepoDialog = false },
-            onRepositorySelected = { repoName ->
-                showRepoDialog = false
-                // After selection logic.
-            }
-        )
-    }
-}
-
-@Composable
-fun RepositorySelectorDialog(onDismiss: () -> Unit, onRepositorySelected: (String) -> Unit) {
-    val mockRepos = listOf("Android-Git-Client", "Personal-Blog", "Work-Project", "Open-Source-Lib")
-
-    Dialog(onDismissRequest = onDismiss) {
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(max = 400.dp)
-                .padding(16.dp),
-            shape = RoundedCornerShape(16.dp),
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text(
-                    text = "Switch repository",
-                    style = MaterialTheme.typography.titleLarge,
-                    modifier = Modifier.padding(bottom = 16.dp)
-                )
-
-                LazyColumn(verticalArrangement = spacedBy(8.dp)) {
-                    items(mockRepos) { repo ->
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { onRepositorySelected(repo) },
-                            colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceVariant
-                            )
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(16.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(Icons.Outlined.Folder, contentDescription = null)
-                                Spacer(Modifier.width(12.dp))
-                                Text(repo)
-                            }
+                BadgedBox(
+                    badge = {
+                        if (needPull) {
+                            Badge()
                         }
                     }
+                ) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_outlined_download),
+                        contentDescription = "Pull"
+                    )
+                }
+            }
+            IconButton(
+                onClick = { onPush() },
+                modifier = Modifier.size(48.dp)
+            ) {
+                BadgedBox(
+                    badge = {
+                        if (needPush) {
+                            Badge()
+                        }
+                    }
+                ) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_outlined_upload),
+                        contentDescription = "Push"
+                    )
                 }
             }
         }
+    }
+
+    when (activeDialog) {
+        is WorkspaceToolbarDialogState.RepositorySelection -> {
+            RepositorySelectorDialog(
+                repositories = repositories,
+                onDismiss = { activeDialog = WorkspaceToolbarDialogState.None },
+                onRepositorySelected = { repoName ->
+                    activeDialog = WorkspaceToolbarDialogState.None
+                    onRepositorySelected(repoName)
+                }
+            )
+        }
+
+        is WorkspaceToolbarDialogState.BranchSelection -> {
+            BranchSelectorDialog(
+                branches = branches,
+                onDismiss = { activeDialog = WorkspaceToolbarDialogState.None },
+                onBranchSelected = { branchName ->
+                    activeDialog = WorkspaceToolbarDialogState.None
+                    onBranchSelected(branchName)
+                }
+            )
+        }
+
+        else -> {}
     }
 }

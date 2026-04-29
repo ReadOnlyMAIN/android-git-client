@@ -6,14 +6,24 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Snackbar
+import androidx.compose.material3.SnackbarDefaults
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import dagger.hilt.android.AndroidEntryPoint
@@ -51,6 +61,8 @@ class MainActivity : ComponentActivity() {
             val themeMode by prefs.getTheme()
                 .collectAsState(initial = ThemeMode.SYSTEM)
 
+            val snackbarHostState = remember { SnackbarHostState() }
+
             GitClientTheme(themeMode = themeMode) {
 
                 val backStackEntry by navController.currentBackStackEntryAsState()
@@ -68,20 +80,51 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .systemBarsPadding()
-                    ) {
-                        AppNavHost(
-                            navController = navController,
-                            themeMode = themeMode,
-                            onThemeChange = { newTheme ->
-                                coroutineScope.launch {
-                                    prefs.setTheme(newTheme)
+                    Scaffold(
+                        containerColor = Color.Transparent,
+                        snackbarHost = {
+                            SnackbarHost(hostState = snackbarHostState) { data ->
+                                val isError = data.visuals.actionLabel == "Copy"
+
+                                Snackbar(
+                                    containerColor = if (isError) MaterialTheme.colorScheme.onErrorContainer
+                                    else SnackbarDefaults.color,
+                                    contentColor = if (isError) MaterialTheme.colorScheme.errorContainer
+                                    else SnackbarDefaults.contentColor,
+                                    action = data.visuals.actionLabel?.let { actionLabel ->
+                                        {
+                                            TextButton(onClick = { data.performAction() }) {
+                                                Text(actionLabel)
+                                            }
+                                        }
+                                    }
+                                ) {
+                                    Text(
+                                        text = data.visuals.message,
+                                        maxLines = 2,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
                                 }
                             }
-                        )
+                        }
+                    ) { padding ->
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                //.systemBarsPadding()
+                                .padding(padding)
+                        ) {
+                            AppNavHost(
+                                navController = navController,
+                                themeMode = themeMode,
+                                onThemeChange = { newTheme ->
+                                    coroutineScope.launch {
+                                        prefs.setTheme(newTheme)
+                                    }
+                                },
+                                snackbarHostState = snackbarHostState
+                            )
+                        }
                     }
                 }
 
