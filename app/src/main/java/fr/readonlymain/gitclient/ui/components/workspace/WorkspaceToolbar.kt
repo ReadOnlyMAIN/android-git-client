@@ -6,9 +6,6 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Inventory2
-import androidx.compose.material.icons.outlined.Sync
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Card
@@ -71,7 +68,10 @@ fun WorkspaceToolbar(
                 shape = RoundedCornerShape(8.dp),
                 colors = IconButtonDefaults.filledTonalIconButtonColors()
             ) {
-                Icon(Icons.Outlined.Inventory2, contentDescription = "Select repository")
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_outlined_inventory_2),
+                    contentDescription = "Select repository"
+                )
             }
             IconButton(
                 onClick = { activeDialog = WorkspaceToolbarDialogState.BranchSelection },
@@ -88,7 +88,10 @@ fun WorkspaceToolbar(
                 onClick = { onSynchronize() },
                 modifier = Modifier.size(48.dp)
             ) {
-                Icon(Icons.Outlined.Sync, contentDescription = "Synchronize")
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_outlined_sync),
+                    contentDescription = "Synchronize"
+                )
             }
 
             IconButton(

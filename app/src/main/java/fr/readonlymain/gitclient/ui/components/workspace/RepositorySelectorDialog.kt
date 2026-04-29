@@ -12,8 +12,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -22,8 +20,10 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import fr.readonlymain.gitclient.R
 import fr.readonlymain.gitclient.data.model.Repository
 
 
@@ -66,7 +66,10 @@ fun RepositorySelectorDialog(
                                 modifier = Modifier.padding(16.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Icon(Icons.Outlined.Folder, contentDescription = null)
+                                Icon(
+                                    painter = painterResource(id = R.drawable.ic_outlined_folder),
+                                    contentDescription = null
+                                )
                                 Spacer(Modifier.width(12.dp))
                                 Column {
                                     Text(

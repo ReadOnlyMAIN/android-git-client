@@ -15,11 +15,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.CloudDownload
-import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -36,7 +31,6 @@ import androidx.compose.material3.ToggleFloatingActionButtonDefaults.animateIcon
 import androidx.compose.material3.animateFloatingActionButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -48,8 +42,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
@@ -57,6 +51,7 @@ import androidx.compose.ui.semantics.traversalIndex
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import fr.readonlymain.gitclient.R
 import fr.readonlymain.gitclient.data.model.Repository
 import fr.readonlymain.gitclient.data.preferences.CredentialsPreferences
 import fr.readonlymain.gitclient.data.preferences.RepositoriesPreferences
@@ -156,13 +151,10 @@ fun RepositoriesScreen(
                         checked = fabMenuExpanded,
                         onCheckedChange = { fabMenuExpanded = !fabMenuExpanded },
                     ) {
-                        val imageVector by remember {
-                            derivedStateOf {
-                                if (checkedProgress > 0.5f) Icons.Filled.Close else Icons.Filled.Add
-                            }
-                        }
+                        val iconId =
+                            if (checkedProgress > 0.5f) R.drawable.ic_filled_close else R.drawable.ic_filled_add
                         Icon(
-                            painter = rememberVectorPainter(imageVector),
+                            painter = painterResource(id = iconId),
                             contentDescription = null,
                             modifier = Modifier.animateIcon({ checkedProgress }),
                         )
@@ -174,7 +166,12 @@ fun RepositoriesScreen(
                         fabMenuExpanded = false
                         activeDialog = RepositoryDialogState.Import
                     },
-                    icon = { Icon(Icons.Filled.FolderOpen, contentDescription = null) },
+                    icon = {
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_filled_folder_open),
+                            contentDescription = null
+                        )
+                    },
                     text = { Text("Import") }
                 )
 
@@ -183,7 +180,12 @@ fun RepositoriesScreen(
                         fabMenuExpanded = false
                         activeDialog = RepositoryDialogState.Clone
                     },
-                    icon = { Icon(Icons.Filled.CloudDownload, contentDescription = null) },
+                    icon = {
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_filled_cloud_download),
+                            contentDescription = null
+                        )
+                    },
                     text = { Text("Clone") }
                 )
             }
