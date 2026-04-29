@@ -9,8 +9,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -30,8 +28,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
+import fr.readonlymain.gitclient.R
 import fr.readonlymain.gitclient.data.model.GitConfig
 import fr.readonlymain.gitclient.data.model.GitCredential
 import fr.readonlymain.gitclient.data.preferences.CredentialsPreferences
@@ -214,7 +214,7 @@ fun SettingsScreen(
                     },
                     leadingContent = {
                         Icon(
-                            imageVector = Icons.Filled.Add,
+                            painter = painterResource(id = R.drawable.ic_filled_add),
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary
                         )
