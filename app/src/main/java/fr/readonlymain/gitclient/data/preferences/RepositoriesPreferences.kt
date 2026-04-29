@@ -21,6 +21,8 @@ import kotlinx.serialization.json.Json
 class RepositoriesPreferences(private val context: Context) {
     companion object {
         private val REPOSITORIES_KEY = stringPreferencesKey("repositories_json")
+        private val SELECTED_REPO_KEY = stringPreferencesKey("selected_repo")
+        private val SELECTED_BRANCH_KEY = stringPreferencesKey("selected_branch")
     }
 
     /**
@@ -57,6 +59,21 @@ class RepositoriesPreferences(private val context: Context) {
     }
 
     /**
+     * Updates an existing repository in the persistent storage.
+     *
+     * @param repository The [Repository] object with updated information.
+     */
+    suspend fun updateRepository(repository: Repository) {
+        context.dataStore.edit { preferences ->
+            val currentList = repositoriesFlow.first()
+            val newList = currentList.map {
+                if (it.id == repository.id) repository else it
+            }
+            preferences[REPOSITORIES_KEY] = Json.encodeToString(newList)
+        }
+    }
+
+    /**
      * Deletes a repository from the persistent storage by its unique identifier.
      *
      * This function retrieves the current list of repositories from the DataStore,
@@ -73,4 +90,24 @@ class RepositoriesPreferences(private val context: Context) {
         }
     }
 
+    val selectedRepoFlow: Flow<String?> = context.dataStore.data.map { it[SELECTED_REPO_KEY] }
+    val selectedBranchFlow: Flow<String?> = context.dataStore.data.map { it[SELECTED_BRANCH_KEY] }
+
+    suspend fun saveSelectedRepo(path: String) {
+        context.dataStore.edit { preferences ->
+            preferences[SELECTED_REPO_KEY] = path
+        }
+    }
+
+    suspend fun saveSelectedBranch(branchName: String) {
+        context.dataStore.edit { preferences ->
+            preferences[SELECTED_BRANCH_KEY] = branchName
+        }
+    }
+
+    suspend fun resetSelectedBranch() {
+        context.dataStore.edit { preferences ->
+            preferences.remove(SELECTED_BRANCH_KEY)
+        }
+    }
 }

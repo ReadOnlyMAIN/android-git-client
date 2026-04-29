@@ -16,7 +16,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
-
+import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.window.SecureFlagPolicy
 
 /**
  * A dialog component that allows the user to input and save Git credentials.
@@ -41,6 +42,7 @@ fun GitCredentialDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Add Git credentials") },
+        properties = DialogProperties(securePolicy = SecureFlagPolicy.SecureOn),
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedTextField(
