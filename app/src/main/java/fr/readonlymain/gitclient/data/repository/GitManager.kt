@@ -7,6 +7,7 @@ import fr.readonlymain.gitclient.data.model.CommitInfo
 import fr.readonlymain.gitclient.data.model.CommitStatus
 import fr.readonlymain.gitclient.data.model.GitConfig
 import fr.readonlymain.gitclient.data.model.GitCredential
+import fr.readonlymain.gitclient.data.model.Repository
 import fr.readonlymain.gitclient.utils.resolveUriToPath
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -16,7 +17,6 @@ import org.eclipse.jgit.api.ListBranchCommand
 import org.eclipse.jgit.api.ResetCommand
 import org.eclipse.jgit.lib.BranchTrackingStatus
 import org.eclipse.jgit.lib.ProgressMonitor
-import org.eclipse.jgit.lib.Repository
 import org.eclipse.jgit.revwalk.RevWalk
 import org.eclipse.jgit.transport.RemoteRefUpdate
 import org.eclipse.jgit.transport.UsernamePasswordCredentialsProvider
@@ -58,15 +58,15 @@ class GitManager @Inject constructor() {
         credentials: List<GitCredential>,
         treeUri: Uri,
         onProgress: (String, Float) -> Unit
-    ): CloneResult = withContext(Dispatchers.IO) {
+    ): Result<CloneResult> = withContext(Dispatchers.IO) {
         val baseFolderPath = resolveUriToPath(treeUri)
-            ?: return@withContext CloneResult("Error : Can't resolve directory.", false)
+            ?: return@withContext Result.failure(Exception("Can't resolve directory."))
 
         val folderName = url.substringAfterLast("/").replace(".git", "")
         val localFolder = File(baseFolderPath, folderName)
 
         if (localFolder.exists()) {
-            return@withContext CloneResult("Error : Folder already exists.", false)
+            return@withContext Result.failure(Exception("Folder already exists."))
         }
 
         // Attempts list : First null (public), then saved credentials
@@ -129,11 +129,12 @@ class GitManager @Inject constructor() {
                 val gitResult = cloneCommand.call()
                 gitResult.close()
 
-                return@withContext CloneResult(
-                    message = "Success: ${localFolder.name} successfully cloned.",
-                    success = true,
-                    folderPath = localFolder.absolutePath,
-                    username = cred?.username
+                return@withContext Result.success(
+                    CloneResult(
+                        url,
+                        localFolder.absolutePath,
+                        cred?.username ?: ""
+                    )
                 )
 
             } catch (e: Exception) {
@@ -143,7 +144,7 @@ class GitManager @Inject constructor() {
         }
 
         if (localFolder.exists()) localFolder.deleteRecursively()
-        CloneResult("Can't clone repository. Last error: $lastErrorMessage", false)
+        Result.failure(Exception("Can't clone repository. Last error: $lastErrorMessage"))
     }
 
     /**
@@ -158,17 +159,18 @@ class GitManager @Inject constructor() {
      */
     suspend fun importExistingRepo(
         treeUri: Uri
-    ): CloneResult = withContext(Dispatchers.IO) {
+    ): Result<CloneResult> = withContext(Dispatchers.IO) {
         val path = resolveUriToPath(treeUri)
-            ?: return@withContext CloneResult("Can't resolve directory.", false)
+            ?: return@withContext Result.failure(Exception("Can't resolve directory."))
 
         val folder = File(path)
         val gitDir = File(folder, ".git")
 
         if (!gitDir.exists()) {
-            return@withContext CloneResult(
-                "Selected folder isn't a valid Git repository (no .git folder found).",
-                false
+            return@withContext Result.failure(
+                Exception(
+                    "Selected folder isn't a valid Git repository (no .git folder found)."
+                )
             )
         }
 
@@ -178,32 +180,27 @@ class GitManager @Inject constructor() {
             val remoteUrl = config.getString("remote", "origin", "url") ?: "Unknown distant URL."
             git.close()
 
-            CloneResult(
-                message = remoteUrl,
-                success = true,
-                folderPath = path,
-                username = null
-            )
+            Result.success(CloneResult(remoteUrl, path, ""))
         } catch (e: Exception) {
-            CloneResult("Can't open repository: ${e.localizedMessage}", false)
+            Result.failure(Exception("Can't open repository: ${e.localizedMessage}"))
         }
     }
     //endregion
 
     //region Branch Management
-    suspend fun getBranches(repoPath: String): List<String> = withContext(Dispatchers.IO) {
+    /*suspend fun getBranches(repoPath: String): List<String> = withContext(Dispatchers.IO) {
         try {
             Git.open(File(repoPath)).use { git ->
                 git.branchList().setListMode(ListBranchCommand.ListMode.ALL)
                     .call()
                     .map { ref ->
-                        Repository.shortenRefName(ref.name)
+                        org.eclipse.jgit.lib.Repository.shortenRefName(ref.name)
                     }
             }
-        } catch (_: Exception) {
+        } catch (e: Exception) {
             emptyList()
         }
-    }
+    }*/
 
     suspend fun getBranchesFullRefs(repoPath: String): Result<List<String>> =
         withContext(Dispatchers.IO) {
@@ -593,5 +590,18 @@ class GitManager @Inject constructor() {
             }
         }
 
+    suspend fun editRepository(repo: Repository): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            Git.open(File(repo.localPath)).use { git ->
+                val config = git.repository.config
+                config.setString("remote", "origin", "url", repo.remoteUrl)
+                config.save()
+            }
 
+            Result.success(Unit)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            Result.failure(e)
+        }
+    }
 }

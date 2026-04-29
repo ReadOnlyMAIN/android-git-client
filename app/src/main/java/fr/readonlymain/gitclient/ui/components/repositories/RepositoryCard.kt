@@ -1,5 +1,6 @@
 package fr.readonlymain.gitclient.ui.components.repositories
 
+import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material3.ButtonDefaults
@@ -39,6 +40,9 @@ fun RepositoryCard(
         )
     ) {
         ListItem(
+            modifier = Modifier.clickable {
+                onEdit()
+            },
             colors = ListItemDefaults.colors(
                 containerColor = Color.Transparent
             ),

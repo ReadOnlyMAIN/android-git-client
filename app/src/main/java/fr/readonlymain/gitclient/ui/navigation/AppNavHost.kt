@@ -27,7 +27,9 @@ fun AppNavHost(
             )
         }
         composable(Route.Repositories.route) {
-            RepositoriesScreen()
+            RepositoriesScreen(
+                snackbarHostState = snackbarHostState
+            )
         }
         composable(Route.Settings.route) {
             SettingsScreen(

@@ -29,14 +29,12 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.ToggleFloatingActionButton
 import androidx.compose.material3.ToggleFloatingActionButtonDefaults.animateIcon
 import androidx.compose.material3.animateFloatingActionButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -62,7 +60,9 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import fr.readonlymain.gitclient.data.model.Repository
 import fr.readonlymain.gitclient.data.preferences.CredentialsPreferences
 import fr.readonlymain.gitclient.data.preferences.RepositoriesPreferences
+import fr.readonlymain.gitclient.ui.components.ObserveUiEvents
 import fr.readonlymain.gitclient.ui.components.repositories.CloneRepositoryDialog
+import fr.readonlymain.gitclient.ui.components.repositories.EditRepositoryDialog
 import fr.readonlymain.gitclient.ui.components.repositories.ImportRepositoryDialog
 import fr.readonlymain.gitclient.ui.components.repositories.ManageStoragePermissionWarning
 import fr.readonlymain.gitclient.ui.components.repositories.RepositoryCard
@@ -76,6 +76,7 @@ sealed class RepositoryDialogState {
     data object None : RepositoryDialogState()
     data object Clone : RepositoryDialogState()
     data object Import : RepositoryDialogState()
+    data class Edit(val repository: Repository) : RepositoryDialogState()
 }
 
 /**
@@ -95,6 +96,7 @@ sealed class RepositoryDialogState {
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun RepositoriesScreen(
+    snackbarHostState: SnackbarHostState,
     viewModel: RepositoriesViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
@@ -104,8 +106,6 @@ fun RepositoriesScreen(
     val credentials by credentialsPreferences.credentialsFlow.collectAsState(initial = emptyList())
     val repositoriesPreferences = remember { RepositoriesPreferences(context) }
     val repositories by repositoriesPreferences.repositoriesFlow.collectAsState(initial = emptyList())
-
-    val snackBarHostState = remember { SnackbarHostState() }
 
     // MANAGE_EXTERNAL_STORAGE permission verification
     var hasManageStoragePermission by remember {
@@ -127,40 +127,14 @@ fun RepositoriesScreen(
     }
 
     var activeDialog by remember { mutableStateOf<RepositoryDialogState>(RepositoryDialogState.None) }
-    var repoUrl by remember { mutableStateOf("") }
 
     val focusRequester = remember { FocusRequester() }
     var fabMenuExpanded by rememberSaveable { mutableStateOf(false) }
 
-    var isImportMode by remember { mutableStateOf(false) }
-
-    LaunchedEffect(Unit) {
-        viewModel.uiEvent.collect { result ->
-            if (result.success) {
-                val folderName = result.folderPath?.substringAfterLast("/") ?: "Repo"
-                val finalUrl = if (isImportMode) result.message else repoUrl
-
-                repositoriesPreferences.addRepository(
-                    Repository(
-                        name = folderName,
-                        remoteUrl = finalUrl,
-                        localPath = result.folderPath ?: "",
-                        username = result.username
-                    )
-                )
-                snackBarHostState.showSnackbar(
-                    if (isImportMode) "Repository imported : $folderName"
-                    else "Successfully cloned repository : $folderName"
-                )
-            } else {
-                snackBarHostState.showSnackbar("Error : ${result.message}")
-            }
-        }
-    }
+    ObserveUiEvents(viewModel.uiEvent, snackbarHostState)
 
     Scaffold(
         containerColor = Color.Transparent,
-        snackbarHost = { SnackbarHost(hostState = snackBarHostState) },
         floatingActionButton = {
             FloatingActionButtonMenu(
                 expanded = fabMenuExpanded,
@@ -199,7 +173,6 @@ fun RepositoriesScreen(
                     onClick = {
                         fabMenuExpanded = false
                         activeDialog = RepositoryDialogState.Import
-                        isImportMode = true
                     },
                     icon = { Icon(Icons.Filled.FolderOpen, contentDescription = null) },
                     text = { Text("Import") }
@@ -209,7 +182,6 @@ fun RepositoriesScreen(
                     onClick = {
                         fabMenuExpanded = false
                         activeDialog = RepositoryDialogState.Clone
-                        isImportMode = false
                     },
                     icon = { Icon(Icons.Filled.CloudDownload, contentDescription = null) },
                     text = { Text("Clone") }
@@ -286,7 +258,9 @@ fun RepositoriesScreen(
                         RepositoryCard(
                             modifier = Modifier.fillMaxWidth(),
                             repositoryData = repo,
-                            onEdit = { /* TODO if needed */ },
+                            onEdit = {
+                                activeDialog = RepositoryDialogState.Edit(repo)
+                            },
                             onDelete = {
                                 scope.launch {
                                     repositoriesPreferences.deleteRepository(repo.id)
@@ -303,7 +277,6 @@ fun RepositoriesScreen(
                 CloneRepositoryDialog(
                     onDismiss = { activeDialog = RepositoryDialogState.None },
                     onConfirm = { typedUrl, selectedUri ->
-                        repoUrl = typedUrl
                         activeDialog = RepositoryDialogState.None
                         if (selectedUri != null) {
                             viewModel.startClone(typedUrl, credentials, selectedUri)
@@ -320,6 +293,17 @@ fun RepositoriesScreen(
                         if (selectedUri != null) {
                             viewModel.startImport(selectedUri)
                         }
+                    }
+                )
+            }
+
+            is RepositoryDialogState.Edit -> {
+                EditRepositoryDialog(
+                    repository = (activeDialog as RepositoryDialogState.Edit).repository,
+                    onDismiss = { activeDialog = RepositoryDialogState.None },
+                    onConfirm = { updatedRepo ->
+                        activeDialog = RepositoryDialogState.None
+                        viewModel.editRepository(updatedRepo)
                     }
                 )
             }
