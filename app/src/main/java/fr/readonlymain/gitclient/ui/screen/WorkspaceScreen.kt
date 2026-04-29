@@ -18,12 +18,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CornerSize
 import androidx.compose.foundation.text.input.delete
 import androidx.compose.foundation.text.input.rememberTextFieldState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material.icons.outlined.KeyboardArrowDown
-import androidx.compose.material.icons.outlined.KeyboardArrowUp
-import androidx.compose.material.icons.outlined.KeyboardDoubleArrowDown
-import androidx.compose.material.icons.outlined.KeyboardDoubleArrowUp
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -37,8 +31,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import fr.readonlymain.gitclient.R
 import fr.readonlymain.gitclient.ui.components.ObserveUiEvents
 import fr.readonlymain.gitclient.ui.components.workspace.CommitItem
 import fr.readonlymain.gitclient.ui.components.workspace.WorkspaceToolbar
@@ -109,7 +105,7 @@ fun WorkspaceScreen(
                             modifier = Modifier.size(48.dp)
                         ) {
                             Icon(
-                                Icons.Outlined.Delete,
+                                painterResource(id = R.drawable.ic_outlined_delete),
                                 contentDescription = "Discard"
                             )
                         }
@@ -118,7 +114,7 @@ fun WorkspaceScreen(
                             modifier = Modifier.size(48.dp)
                         ) {
                             Icon(
-                                Icons.Outlined.KeyboardArrowDown,
+                                painterResource(id = R.drawable.ic_filled_keyboard_arrow_down),
                                 contentDescription = "Synchronize"
                             )
                         }
@@ -127,7 +123,7 @@ fun WorkspaceScreen(
                             modifier = Modifier.size(48.dp)
                         ) {
                             Icon(
-                                Icons.Outlined.KeyboardDoubleArrowDown,
+                                painterResource(id = R.drawable.ic_filled_keyboard_double_arrow_down),
                                 contentDescription = "Synchronize"
                             )
                         }
@@ -154,7 +150,7 @@ fun WorkspaceScreen(
                                     Text(
                                         text = filePath,
                                         modifier = Modifier
-                                            .fillMaxWidth() // Important pour que toute la ligne soit cliquable
+                                            .fillMaxWidth()
                                             .clickable {
                                                 viewModel.toggleUnstagedFileSelection(
                                                     filePath
@@ -201,7 +197,7 @@ fun WorkspaceScreen(
                             modifier = Modifier.size(48.dp)
                         ) {
                             Icon(
-                                Icons.Outlined.KeyboardArrowUp,
+                                painterResource(id = R.drawable.ic_filled_keyboard_arrow_up),
                                 contentDescription = "Synchronize"
                             )
                         }
@@ -210,7 +206,7 @@ fun WorkspaceScreen(
                             modifier = Modifier.size(48.dp)
                         ) {
                             Icon(
-                                Icons.Outlined.KeyboardDoubleArrowUp,
+                                painterResource(id = R.drawable.ic_filled_keyboard_double_arrow_up),
                                 contentDescription = "Synchronize"
                             )
                         }

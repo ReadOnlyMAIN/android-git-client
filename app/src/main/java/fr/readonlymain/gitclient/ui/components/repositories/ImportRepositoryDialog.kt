@@ -8,8 +8,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.width
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
@@ -22,7 +20,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
+import fr.readonlymain.gitclient.R
 
 
 /**
@@ -54,7 +54,10 @@ fun ImportRepositoryDialog(
                     onClick = { directoryPickerLauncher.launch(null) },
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Icon(Icons.Default.Folder, contentDescription = null)
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_filled_folder),
+                        contentDescription = null
+                    )
                     Spacer(Modifier.width(8.dp))
                     Text("Directory")
                 }
