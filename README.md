@@ -16,22 +16,6 @@ The project focuses on simplicity, responsiveness, and modern Android UI/UX whil
 AGit Client is currently optimized for **tablets and large screens only**.
 Smartphone support and responsive layouts are one of the main priorities for upcoming versions.
 
-# 🗨️ Developer Note
-
-I am currently the sole developer of this project and originally started building AGit Client for my own workflow.
-
-I develop projects using the Godot Engine on Android devices and needed a Git client with:
-
-* a clean and intuitive user experience,
-* a responsive and optimized interface,
-* low resource consumption,
-* and a modern Android-native architecture built with Kotlin and Material Design 3.
-
-Most existing mobile Git clients either felt outdated, overloaded, or not optimized for the workflow I wanted.
-AGit Client aims to provide a lightweight, reactive, and efficient Git experience designed specifically for Android devices.
-
-The project is still in early development (`v0.1`) and evolves progressively as my own needs grow.
-
 # 📱 Tech Stack
 
 * **Language:** Kotlin
@@ -48,45 +32,78 @@ The application is under active development and some features may be incomplete,
 
 Feedback, ideas, and contributions are welcome.
 
+# 📄 License
+
+AGit Client is licensed under the GNU General Public License v3.0.
+
+This means you are free to use, study, modify, and redistribute the software, including commercially, provided that any distributed modified versions also remain open-source under the same license.
+
+# 🗨️ Developer Note
+
+I am currently the sole developer of this project and originally started building AGit Client for my own workflow.
+
+I develop projects using the Godot Engine on Android devices and needed a Git client with:
+
+* a clean and intuitive user experience,
+* a responsive and optimized interface,
+* low resource consumption,
+* and a modern Android-native architecture built with Kotlin and Material Design 3.
+
+Most existing mobile Git clients either felt outdated, overloaded, or not optimized for the workflow I wanted.
+AGit Client aims to provide a lightweight, reactive, and efficient Git experience designed specifically for Android devices.
+
+The project is still in early development (`v0.1`) and evolves progressively as my own needs grow.
+
+# 🐛 Issues & Suggestions
+
+If you encounter a bug or have a feature request, feel free to open an issue in the GitHub repository.
+
+# 🤝 Contributing
+
+Contributions are welcome.
+
+If you'd like to contribute:
+
+1. Fork the repository
+2. Create a feature branch
+3. Commit your changes
+4. Open a Pull Request
+
+Please keep the codebase clean and consistent with the existing architecture and Material Design 3 guidelines.
+
 # ✨ Features
 
 ## Current Features (v0.1)
 
+* HTTP git connection *(no SSH yet)*
 * Repository cloning/import
 * Repository list management
-* Refresh repository list on clone/import/delete
 * Editable Git credentials
-* Material Design 3 interface
-* Native Android experience
-* Kotlin-based architecture
+* Fetch, Pull, Commit and Push
 
-## 🚧 Planned Features
+## 🚧 Roadmap
 
-The project is currently in early development.
-Here are some of the features planned for upcoming versions:
-
-* Host URL linked credentials
-* Commit details panel
-
-  * Reset here
-  * Additional commit actions
-* File change details view
-* Automatic fetch/synchronization
-
-  * Periodic background refresh
-  * Refresh when reopening the app
-* File status indicators
-
-  * Added
-  * Modified
-  * Deleted
-* Commit description input
-* Prevent duplicate local repository imports
-* Warning when cloning the same repository multiple times
-* Create new local branches
-* Save default clone directory
-* Automatically create repository folder during clone
-* Responsive smartphone layout support
+| Feature | Type | Status | Version |
+|---|---|---|---|
+| Responsive smartphone layout support | Feature | 🚧 In Progress | v0.2 |
+| Prevent duplicate local repository imports | Bug Fix | 📅 Planned | v0.2 |
+| Warning when cloning duplicate repositories | Bug Fix | 📅 Planned | v0.2 |
+| Local branches creation | Feature | 📅 Planned | v0.2 |
+| Commit details panel | Feature | 📅 Planned | v0.2 |
+| ├─ Reset here action | Feature | 📅 Planned | v0.2 |
+| └─ Additional commit actions | Feature | 📅 Planned | v0.2 |
+| File change details view | Feature | 📅 Planned | v0.2 |
+| SSH Git connection support | Feature | 📅 Planned | v0.2 |
+| Commit description input | Feature | 📅 Planned | v0.2 |
+| Save default clone directory | QoL | 📅 Planned | v0.2 |
+| Automatically create repository folder when cloning | QoL | 📅 Planned | v0.2 |
+| File status indicators | QoL | 📅 Planned | v0.2 |
+| ├─ Added status | QoL | 📅 Planned | v0.2 |
+| ├─ Modified status | QoL | 📅 Planned | v0.2 |
+| └─ Deleted status | QoL | 📅 Planned | v0.2 |
+| Automatic fetch/synchronization | QoL | 📅 Planned | v0.2 |
+| ├─ Periodic background refresh | QoL | 📅 Planned | v0.2 |
+| └─ Refresh on app reopen | QoL | 📅 Planned | v0.2 |
 
 # 📦 Installation
 
@@ -103,20 +120,3 @@ git clone https://github.com/ReadOnlyMAIN/android-git-client.git
 3. Choose the cloned project folder
 4. Sync Gradle dependencies
 5. Run the application on an emulator or Android device
-
-# 🤝 Contributing
-
-Contributions are welcome.
-
-If you'd like to contribute:
-
-1. Fork the repository
-2. Create a feature branch
-3. Commit your changes
-4. Open a Pull Request
-
-Please keep the codebase clean and consistent with the existing architecture and Material Design 3 guidelines.
-
-# 🐛 Issues & Suggestions
-
-If you encounter a bug or have a feature request, feel free to open an issue in the GitHub repository.
