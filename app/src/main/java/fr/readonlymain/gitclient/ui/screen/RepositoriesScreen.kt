@@ -206,6 +206,8 @@ fun RepositoriesScreen(
                         permissionLauncher.launch(intent)
                     }
                 )
+
+                return@Column
             }
 
             if (viewModel.isCloning) {

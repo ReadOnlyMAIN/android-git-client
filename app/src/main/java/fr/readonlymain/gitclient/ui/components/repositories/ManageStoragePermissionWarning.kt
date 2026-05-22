@@ -42,7 +42,7 @@ fun ManageStoragePermissionWarning(
                 onClick = { onAskPermission() },
                 modifier = Modifier.padding(top = 8.dp)
             ) {
-                Text("Accorder la permission")
+                Text("Allow permission")
             }
         }
     }
