@@ -11,10 +11,13 @@ import androidx.compose.foundation.layout.Arrangement.spacedBy
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -126,6 +129,8 @@ fun RepositoriesScreen(
     val focusRequester = remember { FocusRequester() }
     var fabMenuExpanded by rememberSaveable { mutableStateOf(false) }
 
+    val scrollState = rememberScrollState()
+
     ObserveUiEvents(viewModel.uiEvent, snackbarHostState)
 
     Scaffold(
@@ -193,7 +198,7 @@ fun RepositoriesScreen(
     ) { padding ->
         Column(
             modifier = Modifier
-                .padding(padding)
+                .consumeWindowInsets(padding)
                 .fillMaxSize()
         ) {
             if (!hasManageStoragePermission && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
@@ -210,7 +215,16 @@ fun RepositoriesScreen(
                 return@Column
             }
 
-            if (viewModel.isCloning) {
+            if (repositories.isEmpty()) {
+                Box(modifier = Modifier.fillMaxSize()) {
+                    Text(
+                        text = "Repositories list (empty)",
+                        modifier = Modifier
+                            .align(Alignment.Center),
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                }
+            } else if (viewModel.isCloning) {
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -241,21 +255,12 @@ fun RepositoriesScreen(
                         }
                     }
                 }
-            }
-
-            if (repositories.isEmpty()) {
-                Box(modifier = Modifier.fillMaxSize()) {
-                    Text(
-                        text = "Repositories list (empty)",
-                        modifier = Modifier.align(Alignment.Center),
-                        style = MaterialTheme.typography.bodyLarge
-                    )
-                }
             } else {
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(horizontal = 16.dp),
+                        .padding(horizontal = 16.dp)
+                        .verticalScroll(scrollState),
                     verticalArrangement = spacedBy(16.dp)
                 ) {
                     repositories.forEach { repo ->
