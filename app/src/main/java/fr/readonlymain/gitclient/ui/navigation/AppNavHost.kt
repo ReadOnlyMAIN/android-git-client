@@ -9,6 +9,8 @@ import fr.readonlymain.gitclient.ui.screen.RepositoriesScreen
 import fr.readonlymain.gitclient.ui.screen.SettingsScreen
 import fr.readonlymain.gitclient.ui.screen.WorkspaceScreen
 import fr.readonlymain.gitclient.ui.theme.ThemeMode
+import fr.readonlymain.gitclient.utils.materialFadeThroughIn
+import fr.readonlymain.gitclient.utils.materialFadeThroughOut
 
 @Composable
 fun AppNavHost(
@@ -19,7 +21,12 @@ fun AppNavHost(
 ) {
     NavHost(
         navController = navController,
-        startDestination = Route.Workspace.route
+        startDestination = Route.Workspace.route,
+        // Global transitions (Material 3 Fade Through)
+        enterTransition = { materialFadeThroughIn() },
+        exitTransition = { materialFadeThroughOut() },
+        popEnterTransition = { materialFadeThroughIn() },
+        popExitTransition = { materialFadeThroughOut() }
     ) {
         composable(Route.Workspace.route) {
             WorkspaceScreen(
