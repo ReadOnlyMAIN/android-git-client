@@ -18,11 +18,17 @@ Smartphone support and responsive layouts are one of the main priorities for upc
 
 # 📱 Tech Stack
 
-* **Language:** Kotlin
+* **Language:** Kotlin | Jetpack Compose
 * **IDE:** Android Studio
 * **UI:** Material Design 3
 * **Platform:** Android
 * **Architecture Goal:** Modern native Android application with responsive UI support
+
+# 📸 Screenshots
+
+<img width="2944" height="1840" alt="agit_workspace_01" src="https://github.com/user-attachments/assets/3f042ce8-9564-44ab-83ca-d15dc49b5d16" />
+
+<img width="2944" height="1840" alt="agit_settings_01" src="https://github.com/user-attachments/assets/4e9a5569-3e5c-4a84-b02e-c316cd80159c" />
 
 # 🧪 Project Status
 
@@ -87,7 +93,6 @@ Please keep the codebase clean and consistent with the existing architecture and
 |---|---|---|---|
 | Responsive smartphone layout support | Feature | 🚧 In Progress | v0.2 |
 | Prevent duplicate local repository imports | Bug Fix | 📅 Planned | v0.2 |
-| Warning when cloning duplicate repositories | Bug Fix | 📅 Planned | v0.2 |
 | Local branches creation | Feature | 📅 Planned | v0.2 |
 | Commit details panel | Feature | 📅 Planned | v0.2 |
 | ├─ Reset here action | Feature | 📅 Planned | v0.2 |
@@ -95,6 +100,7 @@ Please keep the codebase clean and consistent with the existing architecture and
 | File change details view | Feature | 📅 Planned | v0.2 |
 | SSH Git connection support | Feature | 📅 Planned | v0.2 |
 | Commit description input | Feature | 📅 Planned | v0.2 |
+| Warning when cloning duplicate repositories | QoL | 📅 Planned | v0.2 |
 | Save default clone directory | QoL | 📅 Planned | v0.2 |
 | Automatically create repository folder when cloning | QoL | 📅 Planned | v0.2 |
 | File status indicators | QoL | 📅 Planned | v0.2 |
