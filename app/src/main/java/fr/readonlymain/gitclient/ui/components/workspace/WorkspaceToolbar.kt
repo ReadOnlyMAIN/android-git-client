@@ -52,8 +52,7 @@ fun WorkspaceToolbar(
 
     Card(
         modifier = Modifier
-            .fillMaxHeight()
-            .padding(end = 8.dp),
+            .fillMaxHeight(),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
         ),
