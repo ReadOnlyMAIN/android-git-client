@@ -58,6 +58,8 @@ fun SettingsScreen(
     val gitConfigPreferences = remember { GitConfigPreferences(context) }
     val gitConfig by gitConfigPreferences.gitConfigurationFlow.collectAsState(initial = GitConfig())
 
+    val cardsContainerColor = MaterialTheme.colorScheme.surfaceBright
+
     var showAddDialog by remember { mutableStateOf(false) }
     var showGitConfigDialog by remember { mutableStateOf(false) }
 
@@ -78,7 +80,7 @@ fun SettingsScreen(
             modifier = Modifier.fillMaxWidth(),
             shape = MaterialTheme.shapes.large,
             colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surface
+                containerColor = cardsContainerColor
             )
         ) {
             Column {
@@ -134,7 +136,7 @@ fun SettingsScreen(
             modifier = Modifier.fillMaxWidth(),
             shape = MaterialTheme.shapes.large,
             colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surface
+                containerColor = cardsContainerColor
             )
         ) {
             Column {
@@ -176,7 +178,7 @@ fun SettingsScreen(
             modifier = Modifier.fillMaxWidth(),
             shape = MaterialTheme.shapes.large,
             colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surface
+                containerColor = cardsContainerColor
             )
         ) {
             Column {
