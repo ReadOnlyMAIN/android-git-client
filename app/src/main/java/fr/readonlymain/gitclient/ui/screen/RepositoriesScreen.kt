@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.Arrangement.spacedBy
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -26,7 +25,6 @@ import androidx.compose.material3.FloatingActionButtonMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.ToggleFloatingActionButton
@@ -44,7 +42,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
@@ -133,191 +130,188 @@ fun RepositoriesScreen(
 
     ObserveUiEvents(viewModel.uiEvent, snackbarHostState)
 
-    Scaffold(
-        containerColor = Color.Transparent,
-        floatingActionButton = {
-            FloatingActionButtonMenu(
-                expanded = fabMenuExpanded,
-                button = {
-                    ToggleFloatingActionButton(
-                        modifier =
-                            Modifier
-                                .semantics {
-                                    traversalIndex = -1f
-                                    stateDescription =
-                                        if (fabMenuExpanded) "Expanded" else "Collapsed"
-                                    contentDescription = "Add menu"
-                                }
-                                .animateFloatingActionButton(
-                                    visible = !viewModel.isCloning && hasManageStoragePermission || fabMenuExpanded,
-                                    alignment = Alignment.BottomEnd,
-                                )
-                                .focusRequester(focusRequester),
-                        checked = fabMenuExpanded,
-                        onCheckedChange = { fabMenuExpanded = !fabMenuExpanded },
-                    ) {
-                        val iconId =
-                            if (checkedProgress > 0.5f) R.drawable.ic_filled_close else R.drawable.ic_filled_add
-                        Icon(
-                            painter = painterResource(id = iconId),
-                            contentDescription = null,
-                            modifier = Modifier.animateIcon({ checkedProgress }),
-                        )
-                    }
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+    ) {
+        if (!hasManageStoragePermission && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            ManageStoragePermissionWarning(
+                onAskPermission = {
+                    val intent =
+                        Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION).apply {
+                            data = "package:${context.packageName}".toUri()
+                        }
+                    permissionLauncher.launch(intent)
                 }
+            )
+
+            return@Box
+        }
+
+        if (repositories.isEmpty()) {
+            Box(modifier = Modifier.fillMaxSize()) {
+                Text(
+                    text = "Repositories list (empty)",
+                    modifier = Modifier
+                        .align(Alignment.Center),
+                    style = MaterialTheme.typography.bodyLarge
+                )
+            }
+        } else if (viewModel.isCloning) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer
+                )
             ) {
-                FloatingActionButtonMenuItem(
-                    onClick = {
-                        fabMenuExpanded = false
-                        activeDialog = RepositoryDialogState.Import
-                    },
-                    icon = {
-                        Icon(
-                            painter = painterResource(id = R.drawable.ic_filled_folder_open),
-                            contentDescription = null
-                        )
-                    },
-                    text = { Text("Import") }
-                )
-
-                FloatingActionButtonMenuItem(
-                    onClick = {
-                        fabMenuExpanded = false
-                        activeDialog = RepositoryDialogState.Clone
-                    },
-                    icon = {
-                        Icon(
-                            painter = painterResource(id = R.drawable.ic_filled_cloud_download),
-                            contentDescription = null
-                        )
-                    },
-                    text = { Text("Clone") }
-                )
-            }
-        }
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .consumeWindowInsets(padding)
-                .fillMaxSize()
-        ) {
-            if (!hasManageStoragePermission && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                ManageStoragePermissionWarning(
-                    onAskPermission = {
-                        val intent =
-                            Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION).apply {
-                                data = "package:${context.packageName}".toUri()
-                            }
-                        permissionLauncher.launch(intent)
-                    }
-                )
-
-                return@Column
-            }
-
-            if (repositories.isEmpty()) {
-                Box(modifier = Modifier.fillMaxSize()) {
-                    Text(
-                        text = "Repositories list (empty)",
-                        modifier = Modifier
-                            .align(Alignment.Center),
-                        style = MaterialTheme.typography.bodyLarge
-                    )
-                }
-            } else if (viewModel.isCloning) {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainer
-                    )
-                ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            text = viewModel.progressTask,
-                            style = MaterialTheme.typography.titleSmall,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        if (viewModel.progress >= 0f) {
-                            LinearProgressIndicator(
-                                progress = { viewModel.progress },
-                                modifier = Modifier.fillMaxWidth(),
-                            )
-                        } else {
-                            LinearProgressIndicator(
-                                modifier = Modifier.fillMaxWidth(),
-                            )
-                        }
-                    }
-                }
-            } else {
                 Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 16.dp)
-                        .verticalScroll(scrollState),
-                    verticalArrangement = spacedBy(16.dp)
+                    modifier = Modifier.padding(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    repositories.forEach { repo ->
-                        RepositoryCard(
+                    Text(
+                        text = viewModel.progressTask,
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    if (viewModel.progress >= 0f) {
+                        LinearProgressIndicator(
+                            progress = { viewModel.progress },
                             modifier = Modifier.fillMaxWidth(),
-                            repositoryData = repo,
-                            onEdit = {
-                                activeDialog = RepositoryDialogState.Edit(repo)
-                            },
-                            onDelete = {
-                                scope.launch {
-                                    repositoriesPreferences.deleteRepository(repo.id)
-                                }
-                            }
+                        )
+                    } else {
+                        LinearProgressIndicator(
+                            modifier = Modifier.fillMaxWidth(),
                         )
                     }
                 }
             }
+        } else {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 16.dp)
+                    .verticalScroll(scrollState),
+                verticalArrangement = spacedBy(16.dp)
+            ) {
+                repositories.forEach { repo ->
+                    RepositoryCard(
+                        modifier = Modifier.fillMaxWidth(),
+                        repositoryData = repo,
+                        onEdit = {
+                            activeDialog = RepositoryDialogState.Edit(repo)
+                        },
+                        onDelete = {
+                            scope.launch {
+                                repositoriesPreferences.deleteRepository(repo.id)
+                            }
+                        }
+                    )
+                }
+                Spacer(modifier = Modifier.height(72.dp))
+            }
         }
 
-        when (activeDialog) {
-            is RepositoryDialogState.Clone -> {
-                CloneRepositoryDialog(
-                    onDismiss = { activeDialog = RepositoryDialogState.None },
-                    onConfirm = { typedUrl, selectedUri ->
-                        activeDialog = RepositoryDialogState.None
-                        if (selectedUri != null) {
-                            viewModel.startClone(typedUrl, credentials, selectedUri)
-                        }
-                    }
-                )
+        FloatingActionButtonMenu(
+            modifier = Modifier
+                .align(Alignment.BottomEnd),
+            expanded = fabMenuExpanded,
+            button = {
+                ToggleFloatingActionButton(
+                    modifier =
+                        Modifier
+                            .semantics {
+                                traversalIndex = -1f
+                                stateDescription =
+                                    if (fabMenuExpanded) "Expanded" else "Collapsed"
+                                contentDescription = "Add menu"
+                            }
+                            .animateFloatingActionButton(
+                                visible = !viewModel.isCloning && hasManageStoragePermission || fabMenuExpanded,
+                                alignment = Alignment.BottomEnd,
+                            )
+                            .focusRequester(focusRequester),
+                    checked = fabMenuExpanded,
+                    onCheckedChange = { fabMenuExpanded = !fabMenuExpanded },
+                ) {
+                    val iconId =
+                        if (checkedProgress > 0.5f) R.drawable.ic_filled_close else R.drawable.ic_filled_add
+                    Icon(
+                        painter = painterResource(id = iconId),
+                        contentDescription = null,
+                        modifier = Modifier.animateIcon({ checkedProgress }),
+                    )
+                }
             }
+        ) {
+            FloatingActionButtonMenuItem(
+                onClick = {
+                    fabMenuExpanded = false
+                    activeDialog = RepositoryDialogState.Import
+                },
+                icon = {
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_filled_folder_open),
+                        contentDescription = null
+                    )
+                },
+                text = { Text("Import") }
+            )
 
-            is RepositoryDialogState.Import -> {
-                ImportRepositoryDialog(
-                    onDismiss = { activeDialog = RepositoryDialogState.None },
-                    onConfirm = { selectedUri ->
-                        activeDialog = RepositoryDialogState.None
-                        if (selectedUri != null) {
-                            viewModel.startImport(selectedUri)
-                        }
-                    }
-                )
-            }
-
-            is RepositoryDialogState.Edit -> {
-                EditRepositoryDialog(
-                    repository = (activeDialog as RepositoryDialogState.Edit).repository,
-                    onDismiss = { activeDialog = RepositoryDialogState.None },
-                    onConfirm = { updatedRepo ->
-                        activeDialog = RepositoryDialogState.None
-                        viewModel.editRepository(updatedRepo)
-                    }
-                )
-            }
-
-            else -> {}
+            FloatingActionButtonMenuItem(
+                onClick = {
+                    fabMenuExpanded = false
+                    activeDialog = RepositoryDialogState.Clone
+                },
+                icon = {
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_filled_cloud_download),
+                        contentDescription = null
+                    )
+                },
+                text = { Text("Clone") }
+            )
         }
+    }
+
+    when (activeDialog) {
+        is RepositoryDialogState.Clone -> {
+            CloneRepositoryDialog(
+                onDismiss = { activeDialog = RepositoryDialogState.None },
+                onConfirm = { typedUrl, selectedUri ->
+                    activeDialog = RepositoryDialogState.None
+                    if (selectedUri != null) {
+                        viewModel.startClone(typedUrl, credentials, selectedUri)
+                    }
+                }
+            )
+        }
+
+        is RepositoryDialogState.Import -> {
+            ImportRepositoryDialog(
+                onDismiss = { activeDialog = RepositoryDialogState.None },
+                onConfirm = { selectedUri ->
+                    activeDialog = RepositoryDialogState.None
+                    if (selectedUri != null) {
+                        viewModel.startImport(selectedUri)
+                    }
+                }
+            )
+        }
+
+        is RepositoryDialogState.Edit -> {
+            EditRepositoryDialog(
+                repository = (activeDialog as RepositoryDialogState.Edit).repository,
+                onDismiss = { activeDialog = RepositoryDialogState.None },
+                onConfirm = { updatedRepo ->
+                    activeDialog = RepositoryDialogState.None
+                    viewModel.editRepository(updatedRepo)
+                }
+            )
+        }
+
+        else -> {}
     }
 }
