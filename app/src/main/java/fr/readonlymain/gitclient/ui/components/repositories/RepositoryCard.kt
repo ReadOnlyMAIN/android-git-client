@@ -36,7 +36,7 @@ fun RepositoryCard(
     Card(
         modifier = modifier,
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
+            containerColor = MaterialTheme.colorScheme.surfaceBright
         )
     ) {
         ListItem(

@@ -31,7 +31,10 @@ import fr.readonlymain.gitclient.data.model.CommitStatus
 import kotlinx.coroutines.launch
 
 @Composable
-fun CommitItem(commit: CommitInfo) {
+fun CommitItem(
+    commit: CommitInfo,
+    isCompact: Boolean = false
+) {
     val clipboard = LocalClipboard.current
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -101,55 +104,67 @@ fun CommitItem(commit: CommitInfo) {
         horizontalArrangement = spacedBy(16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(
-            modifier = commitShapeModifier
-        )
+        if (!isCompact || commit.status != CommitStatus.SYNCED) {
+            Box(
+                modifier = commitShapeModifier
+            )
+        } else {
+            UserAvatar(
+                email = commit.authorEmail,
+                name = commit.authorName,
+                modifier = Modifier
+                    .height(shapeHeight)
+                    .aspectRatio(1f)
+            )
+        }
         Text(
             commit.commitMessage,
             Modifier
                 .weight(1f),
             style = MaterialTheme.typography.titleMedium
         )
-        UserAvatar(
-            email = commit.authorEmail,
-            name = commit.authorName,
-            modifier = Modifier
-                .height(shapeHeight)
-                .aspectRatio(1f)
-        )
-        Text(
-            modifier = Modifier.width(128.dp),
-            text = commit.authorName,
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
-        SuggestionChip(
-            modifier = Modifier.width(80.dp),
-            onClick = {
-                scope.launch {
-                    clipboard.setClipEntry(
-                        ClipEntry(
-                            ClipData.newPlainText("commit_hash", commit.commitHash)
+        if (!isCompact) {
+            UserAvatar(
+                email = commit.authorEmail,
+                name = commit.authorName,
+                modifier = Modifier
+                    .height(shapeHeight)
+                    .aspectRatio(1f)
+            )
+            Text(
+                modifier = Modifier.width(128.dp),
+                text = commit.authorName,
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            SuggestionChip(
+                modifier = Modifier.width(80.dp),
+                onClick = {
+                    scope.launch {
+                        clipboard.setClipEntry(
+                            ClipEntry(
+                                ClipData.newPlainText("commit_hash", commit.commitHash)
+                            )
                         )
+                    }
+                    android.widget.Toast.makeText(
+                        context,
+                        "Full hash copied to clipboard.",
+                        android.widget.Toast.LENGTH_SHORT
+                    ).show()
+                },
+                label = {
+                    Text(
+                        text = commit.commitHash.take(7),
+                        modifier = Modifier.fillMaxWidth(),
+                        style = MaterialTheme.typography.labelSmall,
+                        textAlign = TextAlign.Center
                     )
-                }
-                android.widget.Toast.makeText(
-                    context,
-                    "Full hash copied to clipboard.",
-                    android.widget.Toast.LENGTH_SHORT
-                ).show()
-            },
-            label = {
-                Text(
-                    text = commit.commitHash.take(7),
-                    modifier = Modifier.fillMaxWidth(),
-                    style = MaterialTheme.typography.labelSmall,
-                    textAlign = TextAlign.Center
-                )
-            },
-            shape = CircleShape
-        )
+                },
+                shape = CircleShape
+            )
+        }
     }
 }

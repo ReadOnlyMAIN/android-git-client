@@ -5,6 +5,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
@@ -15,6 +16,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -26,6 +28,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.window.core.layout.WindowSizeClass
 import dagger.hilt.android.AndroidEntryPoint
 import fr.readonlymain.gitclient.data.model.AppDestinations
 import fr.readonlymain.gitclient.data.preferences.ThemePreferences
@@ -62,6 +65,12 @@ class MainActivity : ComponentActivity() {
                 .collectAsState(initial = ThemeMode.SYSTEM)
 
             val snackbarHostState = remember { SnackbarHostState() }
+
+            val isCompact =
+                !currentWindowAdaptiveInfo().windowSizeClass.isAtLeastBreakpoint(
+                    WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND,
+                    WindowSizeClass.HEIGHT_DP_MEDIUM_LOWER_BOUND
+                )
 
             GitClientTheme(themeMode = themeMode) {
 
@@ -108,11 +117,13 @@ class MainActivity : ComponentActivity() {
                             }
                         }
                     ) { padding ->
+                        val screenPadding =
+                            if (isCompact) PaddingValues(top = padding.calculateTopPadding()) else padding
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
                                 //.systemBarsPadding()
-                                .padding(padding)
+                                .padding(screenPadding)
                         ) {
                             AppNavHost(
                                 navController = navController,
@@ -122,7 +133,8 @@ class MainActivity : ComponentActivity() {
                                         prefs.setTheme(newTheme)
                                     }
                                 },
-                                snackbarHostState = snackbarHostState
+                                snackbarHostState = snackbarHostState,
+                                isCompact = isCompact
                             )
                         }
                     }

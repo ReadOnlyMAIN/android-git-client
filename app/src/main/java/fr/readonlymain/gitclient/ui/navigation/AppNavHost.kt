@@ -9,21 +9,30 @@ import fr.readonlymain.gitclient.ui.screen.RepositoriesScreen
 import fr.readonlymain.gitclient.ui.screen.SettingsScreen
 import fr.readonlymain.gitclient.ui.screen.WorkspaceScreen
 import fr.readonlymain.gitclient.ui.theme.ThemeMode
+import fr.readonlymain.gitclient.utils.materialFadeThroughIn
+import fr.readonlymain.gitclient.utils.materialFadeThroughOut
 
 @Composable
 fun AppNavHost(
     navController: NavHostController,
     themeMode: ThemeMode,
     onThemeChange: (ThemeMode) -> Unit,
-    snackbarHostState: SnackbarHostState
+    snackbarHostState: SnackbarHostState,
+    isCompact: Boolean = false
 ) {
     NavHost(
         navController = navController,
-        startDestination = Route.Workspace.route
+        startDestination = Route.Workspace.route,
+        // Global transitions (Material 3 Fade Through)
+        enterTransition = { materialFadeThroughIn() },
+        exitTransition = { materialFadeThroughOut() },
+        popEnterTransition = { materialFadeThroughIn() },
+        popExitTransition = { materialFadeThroughOut() }
     ) {
         composable(Route.Workspace.route) {
             WorkspaceScreen(
-                snackbarHostState = snackbarHostState
+                snackbarHostState = snackbarHostState,
+                isCompact = isCompact
             )
         }
         composable(Route.Repositories.route) {
