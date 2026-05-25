@@ -17,7 +17,8 @@ fun AppNavHost(
     navController: NavHostController,
     themeMode: ThemeMode,
     onThemeChange: (ThemeMode) -> Unit,
-    snackbarHostState: SnackbarHostState
+    snackbarHostState: SnackbarHostState,
+    isCompact: Boolean = false
 ) {
     NavHost(
         navController = navController,
@@ -30,7 +31,8 @@ fun AppNavHost(
     ) {
         composable(Route.Workspace.route) {
             WorkspaceScreen(
-                snackbarHostState = snackbarHostState
+                snackbarHostState = snackbarHostState,
+                isCompact = isCompact
             )
         }
         composable(Route.Repositories.route) {

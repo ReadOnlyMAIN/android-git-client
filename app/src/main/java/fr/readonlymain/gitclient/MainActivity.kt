@@ -16,6 +16,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -24,9 +25,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.window.core.layout.WindowSizeClass
@@ -68,7 +67,10 @@ class MainActivity : ComponentActivity() {
             val snackbarHostState = remember { SnackbarHostState() }
 
             val isCompact =
-                LocalWindowInfo.current.containerDpSize.width < WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND.dp
+                !currentWindowAdaptiveInfo().windowSizeClass.isAtLeastBreakpoint(
+                    WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND,
+                    WindowSizeClass.HEIGHT_DP_MEDIUM_LOWER_BOUND
+                )
 
             GitClientTheme(themeMode = themeMode) {
 
@@ -131,7 +133,8 @@ class MainActivity : ComponentActivity() {
                                         prefs.setTheme(newTheme)
                                     }
                                 },
-                                snackbarHostState = snackbarHostState
+                                snackbarHostState = snackbarHostState,
+                                isCompact = isCompact
                             )
                         }
                     }

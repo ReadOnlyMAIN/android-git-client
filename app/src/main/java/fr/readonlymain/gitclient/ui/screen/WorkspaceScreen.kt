@@ -28,12 +28,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-import androidx.window.core.layout.WindowSizeClass
 import fr.readonlymain.gitclient.R
 import fr.readonlymain.gitclient.ui.components.ObserveUiEvents
 import fr.readonlymain.gitclient.ui.components.workspace.CompactCommitPanel
@@ -46,14 +44,12 @@ import fr.readonlymain.gitclient.ui.viewmodel.WorkspaceViewModel
 @Composable
 fun WorkspaceScreen(
     snackbarHostState: SnackbarHostState,
+    isCompact: Boolean = false,
     viewModel: WorkspaceViewModel = hiltViewModel()
 ) {
     val commitMessageState = rememberTextFieldState()
 
     ObserveUiEvents(viewModel.uiEvent, snackbarHostState)
-
-    val isCompact =
-        LocalWindowInfo.current.containerDpSize.width < WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND.dp
 
     var showFileSheet by remember { mutableStateOf(false) }
     var showCommitSheet by remember { mutableStateOf(false) }
