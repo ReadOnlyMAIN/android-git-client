@@ -40,7 +40,7 @@ fun WorkspaceFileLists(
                 .weight(1f)
                 .fillMaxWidth(),
             colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surface
+                containerColor = MaterialTheme.colorScheme.surfaceBright
             )
         ) {
             Column(
@@ -54,7 +54,7 @@ fun WorkspaceFileLists(
                     Text(
                         "Unstaged",
                         modifier = Modifier.weight(1f),
-                        style = MaterialTheme.typography.headlineMedium
+                        style = MaterialTheme.typography.titleLarge
                     )
                     IconButton(
                         onClick = { viewModel.discardSelection() },
@@ -132,7 +132,7 @@ fun WorkspaceFileLists(
                 .weight(1f)
                 .fillMaxWidth(),
             colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surface
+                containerColor = MaterialTheme.colorScheme.surfaceBright
             )
         ) {
             Column(
@@ -146,7 +146,7 @@ fun WorkspaceFileLists(
                     Text(
                         "Staged",
                         modifier = Modifier.weight(1f),
-                        style = MaterialTheme.typography.headlineMedium
+                        style = MaterialTheme.typography.titleLarge
                     )
                     IconButton(
                         onClick = { viewModel.unstageSelection() },
