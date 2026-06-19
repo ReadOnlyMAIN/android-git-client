@@ -53,8 +53,8 @@ import androidx.core.net.toUri
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import fr.readonlymain.gitclient.R
 import fr.readonlymain.gitclient.data.model.Repository
-import fr.readonlymain.gitclient.data.preferences.CredentialsPreferences
-import fr.readonlymain.gitclient.data.preferences.RepositoriesPreferences
+import fr.readonlymain.gitclient.data.preferences.DataStoreCredentialsPreferences
+import fr.readonlymain.gitclient.data.preferences.DataStoreRepositoriesPreferences
 import fr.readonlymain.gitclient.ui.components.ObserveUiEvents
 import fr.readonlymain.gitclient.ui.components.repositories.CloneRepositoryDialog
 import fr.readonlymain.gitclient.ui.components.repositories.EditRepositoryDialog
@@ -78,7 +78,7 @@ sealed class RepositoryDialogState {
  * Composable screen that displays and manages the list of Git repositories.
  *
  * This screen provides functionality to:
- * - List all saved repositories from [RepositoriesPreferences].
+ * - List all saved repositories from [DataStoreRepositoriesPreferences].
  * - Clone a new repository from a remote URL.
  * - Import an existing local Git repository.
  * - Manage storage permissions required for file system access (especially for Android 11+).
@@ -97,9 +97,9 @@ fun RepositoriesScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
-    val credentialsPreferences = remember { CredentialsPreferences(context) }
+    val credentialsPreferences = remember { DataStoreCredentialsPreferences(context) }
     val credentials by credentialsPreferences.credentialsFlow.collectAsState(initial = emptyList())
-    val repositoriesPreferences = remember { RepositoriesPreferences(context) }
+    val repositoriesPreferences = remember { DataStoreRepositoriesPreferences(context) }
     val repositories by repositoriesPreferences.repositoriesFlow.collectAsState(initial = emptyList())
 
     // MANAGE_EXTERNAL_STORAGE permission verification

@@ -34,8 +34,8 @@ import androidx.compose.ui.unit.dp
 import fr.readonlymain.gitclient.R
 import fr.readonlymain.gitclient.data.model.GitConfig
 import fr.readonlymain.gitclient.data.model.GitCredential
-import fr.readonlymain.gitclient.data.preferences.CredentialsPreferences
-import fr.readonlymain.gitclient.data.preferences.GitConfigPreferences
+import fr.readonlymain.gitclient.data.preferences.DataStoreCredentialsPreferences
+import fr.readonlymain.gitclient.data.preferences.DataStoreGitConfigPreferences
 import fr.readonlymain.gitclient.ui.components.settings.CredentialListItem
 import fr.readonlymain.gitclient.ui.components.settings.GitConfigDialog
 import fr.readonlymain.gitclient.ui.components.settings.GitCredentialDialog
@@ -51,11 +51,11 @@ fun SettingsScreen(
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
 
-    val credentialsPreferences = remember { CredentialsPreferences(context) }
+    val credentialsPreferences = remember { DataStoreCredentialsPreferences(context) }
 
     val credentials by credentialsPreferences.credentialsFlow.collectAsState(initial = emptyList())
 
-    val gitConfigPreferences = remember { GitConfigPreferences(context) }
+    val gitConfigPreferences = remember { DataStoreGitConfigPreferences(context) }
     val gitConfig by gitConfigPreferences.gitConfigurationFlow.collectAsState(initial = GitConfig())
 
     val cardsContainerColor = MaterialTheme.colorScheme.surfaceBright
