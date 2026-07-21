@@ -2,6 +2,7 @@ package fr.readonlymain.gitclient.ui.navigation
 
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -9,6 +10,8 @@ import fr.readonlymain.gitclient.ui.screen.RepositoriesScreen
 import fr.readonlymain.gitclient.ui.screen.SettingsScreen
 import fr.readonlymain.gitclient.ui.screen.WorkspaceScreen
 import fr.readonlymain.gitclient.ui.theme.ThemeMode
+import fr.readonlymain.gitclient.ui.viewmodel.RepositoriesViewModel
+import fr.readonlymain.gitclient.ui.viewmodel.WorkspaceViewModel
 import fr.readonlymain.gitclient.utils.materialFadeThroughIn
 import fr.readonlymain.gitclient.utils.materialFadeThroughOut
 
@@ -18,7 +21,9 @@ fun AppNavHost(
     themeMode: ThemeMode,
     onThemeChange: (ThemeMode) -> Unit,
     snackbarHostState: SnackbarHostState,
-    isCompact: Boolean = false
+    isCompact: Boolean = false,
+    workspaceViewModel: WorkspaceViewModel = hiltViewModel(),
+    repositoriesViewModel: RepositoriesViewModel = hiltViewModel()
 ) {
     NavHost(
         navController = navController,
@@ -32,12 +37,14 @@ fun AppNavHost(
         composable(Route.Workspace.route) {
             WorkspaceScreen(
                 snackbarHostState = snackbarHostState,
-                isCompact = isCompact
+                isCompact = isCompact,
+                viewModel = workspaceViewModel
             )
         }
         composable(Route.Repositories.route) {
             RepositoriesScreen(
-                snackbarHostState = snackbarHostState
+                snackbarHostState = snackbarHostState,
+                viewModel = repositoriesViewModel
             )
         }
         composable(Route.Settings.route) {
