@@ -62,6 +62,7 @@ import fr.readonlymain.gitclient.ui.components.repositories.ImportRepositoryDial
 import fr.readonlymain.gitclient.ui.components.repositories.ManageStoragePermissionWarning
 import fr.readonlymain.gitclient.ui.components.repositories.RepositoryCard
 import fr.readonlymain.gitclient.ui.viewmodel.RepositoriesViewModel
+import fr.readonlymain.gitclient.utils.resolveUriToPath
 import kotlinx.coroutines.launch
 
 /**
@@ -99,8 +100,7 @@ fun RepositoriesScreen(
 
     val credentialsPreferences = remember { DataStoreCredentialsPreferences(context) }
     val credentials by credentialsPreferences.credentialsFlow.collectAsState(initial = emptyList())
-    val repositoriesPreferences = remember { DataStoreRepositoriesPreferences(context) }
-    val repositories by repositoriesPreferences.repositoriesFlow.collectAsState(initial = emptyList())
+    val repositories by viewModel.repositories.collectAsState()
 
     // MANAGE_EXTERNAL_STORAGE permission verification
     var hasManageStoragePermission by remember {
@@ -205,7 +205,7 @@ fun RepositoriesScreen(
                         },
                         onDelete = {
                             scope.launch {
-                                repositoriesPreferences.deleteRepository(repo.id)
+                                viewModel.deleteRepository(repo)
                             }
                         }
                     )
@@ -283,7 +283,10 @@ fun RepositoriesScreen(
                 onConfirm = { typedUrl, selectedUri ->
                     activeDialog = RepositoryDialogState.None
                     if (selectedUri != null) {
-                        viewModel.startClone(typedUrl, credentials, selectedUri)
+                        val path = resolveUriToPath(selectedUri)
+                        if (path != null) {
+                            viewModel.startClone(typedUrl, credentials, path)
+                        }
                     }
                 }
             )
@@ -295,7 +298,10 @@ fun RepositoriesScreen(
                 onConfirm = { selectedUri ->
                     activeDialog = RepositoryDialogState.None
                     if (selectedUri != null) {
-                        viewModel.startImport(selectedUri)
+                        val path = resolveUriToPath(selectedUri)
+                        if (path != null) {
+                            viewModel.startImport(path)
+                        }
                     }
                 }
             )

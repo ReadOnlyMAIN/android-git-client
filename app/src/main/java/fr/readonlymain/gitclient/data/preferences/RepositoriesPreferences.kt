@@ -13,5 +13,6 @@ interface RepositoriesPreferences {
     suspend fun deleteRepository(id: String)
     suspend fun saveSelectedRepo(path: String)
     suspend fun saveSelectedBranch(branchName: String)
+    suspend fun resetSelectedRepo()
     suspend fun resetSelectedBranch()
 }

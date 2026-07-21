@@ -45,8 +45,10 @@ class WorkspaceViewModel @Inject constructor(
             scope = viewModelScope,
             started = SharingStarted.Lazily,
             //started = SharingStarted.WhileSubscribed(5000),
+            //started = SharingStarted.Eagerly,
             initialValue = emptyList()
         )
+    
     var branches = mutableStateOf<List<Branch>>(emptyList())
         private set
 
@@ -77,19 +79,32 @@ class WorkspaceViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            val selectedRepo = repositoriesPreferences.selectedRepoFlow.first()
-            if (selectedRepo != null) {
-                selectRepo(selectedRepo)
-                val selectedBranchName = repositoriesPreferences.selectedBranchFlow.first()
-                if (selectedBranchName != null) {
-                    val branch = branches.value.find { it.name == selectedBranchName }
-                    if (branch != null) {
-                        onBranchSelected(branch)
+            repositoriesPreferences.selectedRepoFlow.collect { selectedRepo ->
+                if (selectedRepo != null) {
+                    selectRepo(selectedRepo)
+                    val selectedBranchName = repositoriesPreferences.selectedBranchFlow.first()
+                    if (selectedBranchName != null) {
+                        val branch = branches.value.find { it.name == selectedBranchName }
+                        if (branch != null) {
+                            onBranchSelected(branch)
+                        } else {
+                            refreshCommitList(selectedRepo)
+                        }
                     } else {
                         refreshCommitList(selectedRepo)
                     }
                 } else {
-                    refreshCommitList(selectedRepo)
+                    // Clear state when no repository is selected
+                    repoName.value = ""
+                    branchName.value = ""
+                    branches.value = emptyList()
+                    commitsByRepo.value = emptyList()
+                    unstagedFiles.value = emptySet()
+                    stagedFiles.value = emptySet()
+                    selectedUnstagedFiles.value = emptySet()
+                    selectedStagedFiles.value = emptySet()
+                    needPull.value = false
+                    needPush.value = false
                 }
             }
         }

@@ -1,12 +1,12 @@
 package fr.readonlymain.gitclient.data.preferences
 
 import android.content.Context
+import android.util.Log
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import dagger.hilt.android.qualifiers.ApplicationContext
 import fr.readonlymain.gitclient.data.model.Repository
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.json.Json
 import javax.inject.Inject
@@ -61,7 +61,16 @@ class DataStoreRepositoriesPreferences @Inject constructor(
      */
     override suspend fun addRepository(repository: Repository) {
         context.dataStore.edit { preferences ->
-            val currentList = repositoriesFlow.first()
+            val json = preferences[REPOSITORIES_KEY]
+            val currentList = if (json != null) {
+                try {
+                    Json.decodeFromString<List<Repository>>(json)
+                } catch (_: Exception) {
+                    emptyList()
+                }
+            } else {
+                emptyList()
+            }
             val newList = currentList + repository
             preferences[REPOSITORIES_KEY] = Json.encodeToString(newList)
         }
@@ -74,7 +83,16 @@ class DataStoreRepositoriesPreferences @Inject constructor(
      */
     override suspend fun updateRepository(repository: Repository) {
         context.dataStore.edit { preferences ->
-            val currentList = repositoriesFlow.first()
+            val json = preferences[REPOSITORIES_KEY]
+            val currentList = if (json != null) {
+                try {
+                    Json.decodeFromString<List<Repository>>(json)
+                } catch (_: Exception) {
+                    emptyList()
+                }
+            } else {
+                emptyList()
+            }
             val newList = currentList.map {
                 if (it.id == repository.id) repository else it
             }
@@ -93,7 +111,16 @@ class DataStoreRepositoriesPreferences @Inject constructor(
      */
     override suspend fun deleteRepository(id: String) {
         context.dataStore.edit { preferences ->
-            val currentList = repositoriesFlow.first()
+            val json = preferences[REPOSITORIES_KEY]
+            val currentList = if (json != null) {
+                try {
+                    Json.decodeFromString<List<Repository>>(json)
+                } catch (_: Exception) {
+                    emptyList()
+                }
+            } else {
+                emptyList()
+            }
             val newList = currentList.filter { it.id != id }
             preferences[REPOSITORIES_KEY] = Json.encodeToString(newList)
         }
@@ -109,6 +136,14 @@ class DataStoreRepositoriesPreferences @Inject constructor(
         context.dataStore.edit { preferences ->
             preferences[SELECTED_BRANCH_KEY] = branchName
         }
+    }
+
+    override suspend fun resetSelectedRepo() {
+        Log.d("DataStoreRepositoriesPreferences", "resetSelectedRepo")
+        context.dataStore.edit { preferences ->
+            preferences.remove(SELECTED_REPO_KEY)
+        }
+        resetSelectedBranch()
     }
 
     override suspend fun resetSelectedBranch() {

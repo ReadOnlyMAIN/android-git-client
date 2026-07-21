@@ -1,6 +1,6 @@
 package fr.readonlymain.gitclient.ui.viewmodel
 
-import android.net.Uri
+import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -15,7 +15,11 @@ import fr.readonlymain.gitclient.data.model.UiEvent
 import fr.readonlymain.gitclient.data.preferences.RepositoriesPreferences
 import fr.readonlymain.gitclient.data.repository.GitRepository
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -35,6 +39,14 @@ class RepositoriesViewModel @Inject constructor(
     private val gitRepository: GitRepository,
     private val repositoriesPreferences: RepositoriesPreferences,
 ) : ViewModel() {
+
+    val repositories: StateFlow<List<Repository>> =
+        repositoriesPreferences.repositoriesFlow.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.Lazily,
+            initialValue = emptyList()
+        )
+
     var isCloning by mutableStateOf(false)
         private set
 
@@ -50,10 +62,10 @@ class RepositoriesViewModel @Inject constructor(
     /**
      * Initiates the cloning process of a Git repository from a remote URL.
      */
-    fun startClone(url: String, credentials: List<GitCredential>, uri: Uri) {
+    fun startClone(url: String, credentials: List<GitCredential>, localPath: String) {
         viewModelScope.launch {
             isCloning = true
-            val result = gitRepository.cloneRepo(url, credentials, uri) { task, p ->
+            val result = gitRepository.cloneRepo(url, credentials, localPath) { task, p ->
                 progressTask = task
                 progress = p
             }
@@ -68,16 +80,16 @@ class RepositoriesViewModel @Inject constructor(
     }
 
     /**
-     * Starts the process of importing an existing Git repository from the specified [Uri].
+     * Starts the process of importing an existing Git repository from the specified local path.
      *
      * This function launches a coroutine to call the [GitRepository], and once the operation
      * is complete, it emits the resulting [CloneResult] to the [uiEvent] flow.
      *
-     * @param uri The [Uri] representing the local directory of the existing repository to import.
+     * @param localPath The absolute path representing the local directory of the existing repository to import.
      */
-    fun startImport(uri: Uri) {
+    fun startImport(localPath: String) {
         viewModelScope.launch {
-            val result = gitRepository.importExistingRepo(uri)
+            val result = gitRepository.importExistingRepo(localPath)
             result.onSuccess { cloneResult ->
                 saveRepoData(cloneResult.repoUrl, cloneResult.folderPath, cloneResult.username)
                 _uiEvent.emit(UiEvent.Success("Successfully imported repository."))
@@ -107,6 +119,24 @@ class RepositoriesViewModel @Inject constructor(
                 repositoriesPreferences.updateRepository(updatedRepo)
             }.onFailure { error ->
                 _uiEvent.emit(UiEvent.Error("Error: Can't update repository ${updatedRepo.name} ($error)"))
+            }
+        }
+    }
+
+    fun deleteRepository(repo: Repository) {
+        viewModelScope.launch {
+            try {
+                Log.d("RepositoriesViewModel", "deleteRepository ${repo.name}")
+                val selectedRepo = repositoriesPreferences.selectedRepoFlow.first()
+
+                repositoriesPreferences.deleteRepository(repo.id)
+
+                if (repo.localPath == selectedRepo) {
+                    repositoriesPreferences.resetSelectedRepo()
+                }
+            } catch (e: Exception) {
+                Log.e("RepositoriesViewModel", "Error: Can't update repository ${repo.name}", e)
+                _uiEvent.emit(UiEvent.Error("Error: Can't update repository ${repo.name} ($e)"))
             }
         }
     }

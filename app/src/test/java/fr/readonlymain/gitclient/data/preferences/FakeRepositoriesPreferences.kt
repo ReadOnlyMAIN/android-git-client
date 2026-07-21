@@ -38,6 +38,11 @@ class FakeRepositoriesPreferences : RepositoriesPreferences {
         _selectedBranch.value = branchName
     }
 
+    override suspend fun resetSelectedRepo() {
+        _selectedRepo.value = null
+        resetSelectedBranch()
+    }
+
     override suspend fun resetSelectedBranch() {
         _selectedBranch.value = null
     }
