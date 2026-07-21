@@ -1,6 +1,5 @@
 package fr.readonlymain.gitclient.data.repository
 
-import android.net.Uri
 import fr.readonlymain.gitclient.data.model.Branch
 import fr.readonlymain.gitclient.data.model.CloneResult
 import fr.readonlymain.gitclient.data.model.CommitInfo
@@ -19,14 +18,14 @@ interface GitRepository {
     suspend fun cloneRepo(
         url: String,
         credentials: List<GitCredential>,
-        treeUri: Uri,
+        localPath: String,
         onProgress: (String, Float) -> Unit
     ): Result<CloneResult>
 
     /**
-     * Imports an existing Git repository from a given directory URI.
+     * Imports an existing Git repository from a given local path.
      */
-    suspend fun importExistingRepo(treeUri: Uri): Result<CloneResult>
+    suspend fun importExistingRepo(localPath: String): Result<CloneResult>
 
     /**
      * Retrieves the list of all branch references (local and remote).

@@ -8,7 +8,6 @@ import fr.readonlymain.gitclient.data.model.CommitStatus
 import fr.readonlymain.gitclient.data.model.GitConfig
 import fr.readonlymain.gitclient.data.model.GitCredential
 import fr.readonlymain.gitclient.data.model.Repository
-import fr.readonlymain.gitclient.utils.resolveUriToPath
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.eclipse.jgit.api.CreateBranchCommand
@@ -32,7 +31,7 @@ import javax.inject.Singleton
  * and importing existing local repositories.
  *
  * This class leverages the JGit library to perform git actions and provides integration
- * with the Android file system by resolving [Uri] paths. It supports both public
+ * resolution by resolving paths. It supports both public
  * anonymous access and authenticated access using [GitCredential].
  *
  */
@@ -56,14 +55,11 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
     override suspend fun cloneRepo(
         url: String,
         credentials: List<GitCredential>,
-        treeUri: Uri,
+        localPath: String,
         onProgress: (String, Float) -> Unit
     ): Result<CloneResult> = withContext(Dispatchers.IO) {
-        val baseFolderPath = resolveUriToPath(treeUri)
-            ?: return@withContext Result.failure(Exception("Can't resolve directory."))
-
         val folderName = url.substringAfterLast("/").replace(".git", "")
-        val localFolder = File(baseFolderPath, folderName)
+        val localFolder = File(localPath, folderName)
 
         if (localFolder.exists()) {
             return@withContext Result.failure(Exception("Folder already exists."))
@@ -158,12 +154,9 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
      * and the absolute path to the local folder.
      */
     override suspend fun importExistingRepo(
-        treeUri: Uri
+        localPath: String
     ): Result<CloneResult> = withContext(Dispatchers.IO) {
-        val path = resolveUriToPath(treeUri)
-            ?: return@withContext Result.failure(Exception("Can't resolve directory."))
-
-        val folder = File(path)
+        val folder = File(localPath)
         val gitDir = File(folder, ".git")
 
         if (!gitDir.exists()) {
@@ -180,7 +173,7 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
             val remoteUrl = config.getString("remote", "origin", "url") ?: "Unknown distant URL."
             git.close()
 
-            Result.success(CloneResult(remoteUrl, path, ""))
+            Result.success(CloneResult(remoteUrl, localPath, ""))
         } catch (e: Exception) {
             Result.failure(Exception("Can't open repository: ${e.localizedMessage}"))
         }

@@ -1,6 +1,5 @@
 package fr.readonlymain.gitclient.data.repository
 
-import android.net.Uri
 import fr.readonlymain.gitclient.data.model.Branch
 import fr.readonlymain.gitclient.data.model.CloneResult
 import fr.readonlymain.gitclient.data.model.CommitInfo
@@ -26,7 +25,7 @@ class FakeGitRepository : GitRepository {
     override suspend fun cloneRepo(
         url: String,
         credentials: List<GitCredential>,
-        treeUri: Uri,
+        localPath: String,
         onProgress: (String, Float) -> Unit
     ): Result<CloneResult> {
         lastActionCalled = "cloneRepo"
@@ -34,7 +33,7 @@ class FakeGitRepository : GitRepository {
         return handleResult(CloneResult(url, "/fake/path", "fake_user"))
     }
 
-    override suspend fun importExistingRepo(treeUri: Uri): Result<CloneResult> {
+    override suspend fun importExistingRepo(localPath: String): Result<CloneResult> {
         lastActionCalled = "importExistingRepo"
         return handleResult(CloneResult("https://fake.url", "/fake/path", ""))
     }
