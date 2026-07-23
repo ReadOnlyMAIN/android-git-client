@@ -1,6 +1,5 @@
 package fr.readonlymain.gitclient.ui.viewmodel
 
-import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -126,7 +125,6 @@ class RepositoriesViewModel @Inject constructor(
     fun deleteRepository(repo: Repository) {
         viewModelScope.launch {
             try {
-                Log.d("RepositoriesViewModel", "deleteRepository ${repo.name}")
                 val selectedRepo = repositoriesPreferences.selectedRepoFlow.first()
 
                 repositoriesPreferences.deleteRepository(repo.id)
@@ -135,7 +133,6 @@ class RepositoriesViewModel @Inject constructor(
                     repositoriesPreferences.resetSelectedRepo()
                 }
             } catch (e: Exception) {
-                Log.e("RepositoriesViewModel", "Error: Can't update repository ${repo.name}", e)
                 _uiEvent.emit(UiEvent.Error("Error: Can't update repository ${repo.name} ($e)"))
             }
         }
