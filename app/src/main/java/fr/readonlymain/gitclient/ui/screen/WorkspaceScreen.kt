@@ -21,6 +21,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -81,8 +82,8 @@ fun WorkspaceScreen(
             } else {
                 WorkspaceToolbar(
                     modifier = Modifier,
-                    isCompact = isCompact,
-                    repositories = viewModel.repositories.value,
+                    isCompact = false,
+                    repositories = viewModel.repositories.collectAsState().value,
                     branches = viewModel.branches.value,
                     onRepositorySelected = { path ->
                         viewModel.onRepositorySelected(path)
@@ -121,8 +122,8 @@ fun WorkspaceScreen(
             WorkspaceToolbar(
                 modifier = Modifier
                     .align(Alignment.BottomCenter),
-                isCompact = isCompact,
-                repositories = viewModel.repositories.value,
+                isCompact = true,
+                repositories = viewModel.repositories.collectAsState().value,
                 branches = viewModel.branches.value,
                 onRepositorySelected = { path ->
                     viewModel.onRepositorySelected(path)

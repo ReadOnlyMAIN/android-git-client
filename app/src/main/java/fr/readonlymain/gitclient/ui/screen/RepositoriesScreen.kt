@@ -53,8 +53,8 @@ import androidx.core.net.toUri
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import fr.readonlymain.gitclient.R
 import fr.readonlymain.gitclient.data.model.Repository
-import fr.readonlymain.gitclient.data.preferences.CredentialsPreferences
-import fr.readonlymain.gitclient.data.preferences.RepositoriesPreferences
+import fr.readonlymain.gitclient.data.preferences.DataStoreCredentialsPreferences
+import fr.readonlymain.gitclient.data.preferences.DataStoreRepositoriesPreferences
 import fr.readonlymain.gitclient.ui.components.ObserveUiEvents
 import fr.readonlymain.gitclient.ui.components.repositories.CloneRepositoryDialog
 import fr.readonlymain.gitclient.ui.components.repositories.EditRepositoryDialog
@@ -62,6 +62,7 @@ import fr.readonlymain.gitclient.ui.components.repositories.ImportRepositoryDial
 import fr.readonlymain.gitclient.ui.components.repositories.ManageStoragePermissionWarning
 import fr.readonlymain.gitclient.ui.components.repositories.RepositoryCard
 import fr.readonlymain.gitclient.ui.viewmodel.RepositoriesViewModel
+import fr.readonlymain.gitclient.utils.resolveUriToPath
 import kotlinx.coroutines.launch
 
 /**
@@ -78,7 +79,7 @@ sealed class RepositoryDialogState {
  * Composable screen that displays and manages the list of Git repositories.
  *
  * This screen provides functionality to:
- * - List all saved repositories from [RepositoriesPreferences].
+ * - List all saved repositories from [DataStoreRepositoriesPreferences].
  * - Clone a new repository from a remote URL.
  * - Import an existing local Git repository.
  * - Manage storage permissions required for file system access (especially for Android 11+).
@@ -97,10 +98,9 @@ fun RepositoriesScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
-    val credentialsPreferences = remember { CredentialsPreferences(context) }
+    val credentialsPreferences = remember { DataStoreCredentialsPreferences(context) }
     val credentials by credentialsPreferences.credentialsFlow.collectAsState(initial = emptyList())
-    val repositoriesPreferences = remember { RepositoriesPreferences(context) }
-    val repositories by repositoriesPreferences.repositoriesFlow.collectAsState(initial = emptyList())
+    val repositories by viewModel.repositories.collectAsState()
 
     // MANAGE_EXTERNAL_STORAGE permission verification
     var hasManageStoragePermission by remember {
@@ -205,7 +205,7 @@ fun RepositoriesScreen(
                         },
                         onDelete = {
                             scope.launch {
-                                repositoriesPreferences.deleteRepository(repo.id)
+                                viewModel.deleteRepository(repo)
                             }
                         }
                     )
@@ -283,7 +283,10 @@ fun RepositoriesScreen(
                 onConfirm = { typedUrl, selectedUri ->
                     activeDialog = RepositoryDialogState.None
                     if (selectedUri != null) {
-                        viewModel.startClone(typedUrl, credentials, selectedUri)
+                        val path = resolveUriToPath(selectedUri)
+                        if (path != null) {
+                            viewModel.startClone(typedUrl, credentials, path)
+                        }
                     }
                 }
             )
@@ -295,7 +298,10 @@ fun RepositoriesScreen(
                 onConfirm = { selectedUri ->
                     activeDialog = RepositoryDialogState.None
                     if (selectedUri != null) {
-                        viewModel.startImport(selectedUri)
+                        val path = resolveUriToPath(selectedUri)
+                        if (path != null) {
+                            viewModel.startImport(path)
+                        }
                     }
                 }
             )

@@ -31,7 +31,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.window.core.layout.WindowSizeClass
 import dagger.hilt.android.AndroidEntryPoint
 import fr.readonlymain.gitclient.data.model.AppDestinations
-import fr.readonlymain.gitclient.data.preferences.ThemePreferences
+import fr.readonlymain.gitclient.data.preferences.DataStoreThemePreferences
 import fr.readonlymain.gitclient.ui.components.NavigationSuiteScaffoldCustom
 import fr.readonlymain.gitclient.ui.navigation.AppNavHost
 import fr.readonlymain.gitclient.ui.theme.GitClientTheme
@@ -58,7 +58,7 @@ class MainActivity : ComponentActivity() {
             val navController = rememberNavController()
 
             val context = LocalContext.current
-            val prefs = remember { ThemePreferences(context) }
+            val prefs = remember { DataStoreThemePreferences(context) }
             val coroutineScope = rememberCoroutineScope()
 
             val themeMode by prefs.getTheme()

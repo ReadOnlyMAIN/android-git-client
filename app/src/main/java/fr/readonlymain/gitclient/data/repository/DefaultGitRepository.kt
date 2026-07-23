@@ -8,7 +8,6 @@ import fr.readonlymain.gitclient.data.model.CommitStatus
 import fr.readonlymain.gitclient.data.model.GitConfig
 import fr.readonlymain.gitclient.data.model.GitCredential
 import fr.readonlymain.gitclient.data.model.Repository
-import fr.readonlymain.gitclient.utils.resolveUriToPath
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.eclipse.jgit.api.CreateBranchCommand
@@ -32,12 +31,12 @@ import javax.inject.Singleton
  * and importing existing local repositories.
  *
  * This class leverages the JGit library to perform git actions and provides integration
- * with the Android file system by resolving [Uri] paths. It supports both public
+ * resolution by resolving paths. It supports both public
  * anonymous access and authenticated access using [GitCredential].
  *
  */
 @Singleton
-class GitManager @Inject constructor() {
+class DefaultGitRepository @Inject constructor() : GitRepository {
     //region Repo Management
     /**
      * Clones a Git repository to a local directory.
@@ -53,17 +52,14 @@ class GitManager @Inject constructor() {
      * and the progress ratio (Float, ranging from 0.0 to 1.0, or -1.0 if progress is indeterminate).
      * @return A [CloneResult] indicating the success or failure of the operation, including the local path or an error message.
      */
-    suspend fun cloneRepo(
+    override suspend fun cloneRepo(
         url: String,
         credentials: List<GitCredential>,
-        treeUri: Uri,
+        localPath: String,
         onProgress: (String, Float) -> Unit
     ): Result<CloneResult> = withContext(Dispatchers.IO) {
-        val baseFolderPath = resolveUriToPath(treeUri)
-            ?: return@withContext Result.failure(Exception("Can't resolve directory."))
-
         val folderName = url.substringAfterLast("/").replace(".git", "")
-        val localFolder = File(baseFolderPath, folderName)
+        val localFolder = File(localPath, folderName)
 
         if (localFolder.exists()) {
             return@withContext Result.failure(Exception("Folder already exists."))
@@ -157,13 +153,10 @@ class GitManager @Inject constructor() {
      * @return A [CloneResult] containing the success status, the remote URL (as the message),
      * and the absolute path to the local folder.
      */
-    suspend fun importExistingRepo(
-        treeUri: Uri
+    override suspend fun importExistingRepo(
+        localPath: String
     ): Result<CloneResult> = withContext(Dispatchers.IO) {
-        val path = resolveUriToPath(treeUri)
-            ?: return@withContext Result.failure(Exception("Can't resolve directory."))
-
-        val folder = File(path)
+        val folder = File(localPath)
         val gitDir = File(folder, ".git")
 
         if (!gitDir.exists()) {
@@ -180,7 +173,7 @@ class GitManager @Inject constructor() {
             val remoteUrl = config.getString("remote", "origin", "url") ?: "Unknown distant URL."
             git.close()
 
-            Result.success(CloneResult(remoteUrl, path, ""))
+            Result.success(CloneResult(remoteUrl, localPath, ""))
         } catch (e: Exception) {
             Result.failure(Exception("Can't open repository: ${e.localizedMessage}"))
         }
@@ -188,21 +181,7 @@ class GitManager @Inject constructor() {
     //endregion
 
     //region Branch Management
-    /*suspend fun getBranches(repoPath: String): List<String> = withContext(Dispatchers.IO) {
-        try {
-            Git.open(File(repoPath)).use { git ->
-                git.branchList().setListMode(ListBranchCommand.ListMode.ALL)
-                    .call()
-                    .map { ref ->
-                        org.eclipse.jgit.lib.Repository.shortenRefName(ref.name)
-                    }
-            }
-        } catch (e: Exception) {
-            emptyList()
-        }
-    }*/
-
-    suspend fun getBranchesFullRefs(repoPath: String): Result<List<String>> =
+    override suspend fun getBranchesFullRefs(repoPath: String): Result<List<String>> =
         withContext(Dispatchers.IO) {
             try {
                 Git.open(File(repoPath)).use { git ->
@@ -219,7 +198,7 @@ class GitManager @Inject constructor() {
             }
         }
 
-    suspend fun checkoutBranch(repoPath: String, branch: Branch): Result<String> =
+    override suspend fun checkoutBranch(repoPath: String, branch: Branch): Result<String> =
         withContext(Dispatchers.IO) {
             try {
                 Git.open(File(repoPath)).use { git ->
@@ -245,7 +224,10 @@ class GitManager @Inject constructor() {
             }
         }
 
-    suspend fun getTrackingStatus(repoPath: String, branchName: String): Result<Pair<Int, Int>> =
+    override suspend fun getTrackingStatus(
+        repoPath: String,
+        branchName: String
+    ): Result<Pair<Int, Int>> =
         withContext(Dispatchers.IO) {
             try {
                 Git.open(File(repoPath)).use { git ->
@@ -263,7 +245,7 @@ class GitManager @Inject constructor() {
     //endregion
 
     //region Remote Operations
-    suspend fun fetch(repoPath: String, credentials: List<GitCredential>): Result<Unit> =
+    override suspend fun fetch(repoPath: String, credentials: List<GitCredential>): Result<Unit> =
         withContext(Dispatchers.IO) {
             val attempts = listOf<GitCredential?>(null) + credentials
             var lastException: Exception? = null
@@ -287,7 +269,7 @@ class GitManager @Inject constructor() {
             Result.failure(lastException ?: Exception("Fetch failed"))
         }
 
-    suspend fun pull(repoPath: String, credentials: List<GitCredential>): Result<Unit> =
+    override suspend fun pull(repoPath: String, credentials: List<GitCredential>): Result<Unit> =
         withContext(Dispatchers.IO) {
             val attempts = listOf<GitCredential?>(null) + credentials
             var lastException: Exception? = null
@@ -319,7 +301,7 @@ class GitManager @Inject constructor() {
             Result.failure(lastException ?: Exception("Pull failed"))
         }
 
-    suspend fun push(repoPath: String, credentials: List<GitCredential>): Result<Unit> =
+    override suspend fun push(repoPath: String, credentials: List<GitCredential>): Result<Unit> =
         withContext(Dispatchers.IO) {
             val attempts = listOf<GitCredential?>(null) + credentials
             var lastException: Exception? = null
@@ -373,7 +355,10 @@ class GitManager @Inject constructor() {
      * @return A list of [CommitInfo] objects representing the history of the current branch.
      * Returns an empty list if an error occurs or if no commits are found.
      */
-    suspend fun getCommits(repoPath: String, branchName: String? = null): List<CommitInfo> =
+    override suspend fun getCommits(
+        repoPath: String,
+        branchName: String?
+    ): List<CommitInfo> =
         withContext(Dispatchers.IO) {
             val commitList = mutableListOf<CommitInfo>()
             val dateFormatter = SimpleDateFormat(
@@ -453,7 +438,7 @@ class GitManager @Inject constructor() {
     //endregion
 
     //region Status & Working Directory
-    suspend fun getRepoStatus(repoPath: String): Map<String, Set<String>> =
+    override suspend fun getRepoStatus(repoPath: String): Map<String, Set<String>> =
         withContext(Dispatchers.IO) {
             Git.open(File(repoPath)).use { git ->
                 val status = git.status().call()
@@ -464,19 +449,20 @@ class GitManager @Inject constructor() {
             }
         }
 
-    suspend fun resetRepository(repoPath: String): Result<Unit> = withContext(Dispatchers.IO) {
-        try {
-            Git.open(File(repoPath)).use { git ->
-                git.reset().setMode(ResetCommand.ResetType.HARD).call()
-                git.clean().setCleanDirectories(true).setIgnore(false).call()
-                Result.success(Unit)
+    override suspend fun resetRepository(repoPath: String): Result<Unit> =
+        withContext(Dispatchers.IO) {
+            try {
+                Git.open(File(repoPath)).use { git ->
+                    git.reset().setMode(ResetCommand.ResetType.HARD).call()
+                    git.clean().setCleanDirectories(true).setIgnore(false).call()
+                    Result.success(Unit)
+                }
+            } catch (e: Exception) {
+                Result.failure(e)
             }
-        } catch (e: Exception) {
-            Result.failure(e)
         }
-    }
 
-    suspend fun discardFiles(repoPath: String, filePatterns: List<String>): Result<Unit> =
+    override suspend fun discardFiles(repoPath: String, filePatterns: List<String>): Result<Unit> =
         withContext(Dispatchers.IO) {
             try {
                 Git.open(File(repoPath)).use { git ->
@@ -511,7 +497,7 @@ class GitManager @Inject constructor() {
     //endregion
 
     //region Index & Staging Management
-    suspend fun stageFiles(repoPath: String, filePatterns: List<String>): Result<Unit> =
+    override suspend fun stageFiles(repoPath: String, filePatterns: List<String>): Result<Unit> =
         withContext(Dispatchers.IO) {
             try {
                 Git.open(File(repoPath)).use { git ->
@@ -540,7 +526,7 @@ class GitManager @Inject constructor() {
             }
         }
 
-    suspend fun stageAll(repoPath: String): Result<Unit> = withContext(Dispatchers.IO) {
+    override suspend fun stageAll(repoPath: String): Result<Unit> = withContext(Dispatchers.IO) {
         try {
             Git.open(File(repoPath)).use { git ->
                 git.add().addFilepattern(".").call()
@@ -558,7 +544,10 @@ class GitManager @Inject constructor() {
         }
     }
 
-    suspend fun unstageFiles(repoPath: String, filePatterns: List<String>? = null): Result<Unit> =
+    override suspend fun unstageFiles(
+        repoPath: String,
+        filePatterns: List<String>?
+    ): Result<Unit> =
         withContext(Dispatchers.IO) {
             try {
                 Git.open(File(repoPath)).use { git ->
@@ -575,7 +564,11 @@ class GitManager @Inject constructor() {
         }
 
     //endregion
-    suspend fun commit(repoPath: String, gitConfig: GitConfig, message: String): Result<Unit> =
+    override suspend fun commit(
+        repoPath: String,
+        gitConfig: GitConfig,
+        message: String
+    ): Result<Unit> =
         withContext(Dispatchers.IO) {
             try {
                 Git.open(File(repoPath)).use { git ->
@@ -590,18 +583,19 @@ class GitManager @Inject constructor() {
             }
         }
 
-    suspend fun editRepository(repo: Repository): Result<Unit> = withContext(Dispatchers.IO) {
-        try {
-            Git.open(File(repo.localPath)).use { git ->
-                val config = git.repository.config
-                config.setString("remote", "origin", "url", repo.remoteUrl)
-                config.save()
-            }
+    override suspend fun editRepository(repo: Repository): Result<Unit> =
+        withContext(Dispatchers.IO) {
+            try {
+                Git.open(File(repo.localPath)).use { git ->
+                    val config = git.repository.config
+                    config.setString("remote", "origin", "url", repo.remoteUrl)
+                    config.save()
+                }
 
-            Result.success(Unit)
-        } catch (e: Exception) {
-            e.printStackTrace()
-            Result.failure(e)
+                Result.success(Unit)
+            } catch (e: Exception) {
+                e.printStackTrace()
+                Result.failure(e)
+            }
         }
-    }
 }

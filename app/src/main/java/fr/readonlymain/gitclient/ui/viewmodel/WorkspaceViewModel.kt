@@ -11,17 +11,20 @@ import fr.readonlymain.gitclient.data.model.UiEvent
 import fr.readonlymain.gitclient.data.preferences.CredentialsPreferences
 import fr.readonlymain.gitclient.data.preferences.GitConfigPreferences
 import fr.readonlymain.gitclient.data.preferences.RepositoriesPreferences
-import fr.readonlymain.gitclient.data.repository.GitManager
+import fr.readonlymain.gitclient.data.repository.GitRepository
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import org.eclipse.jgit.lib.Repository as JGitRepository
 
 @HiltViewModel
 class WorkspaceViewModel @Inject constructor(
-    private val gitManager: GitManager,
+    private val gitRepository: GitRepository,
     private val repositoriesPreferences: RepositoriesPreferences,
     private val credentialsPreferences: CredentialsPreferences,
     private val gitConfigPreferences: GitConfigPreferences
@@ -37,8 +40,15 @@ class WorkspaceViewModel @Inject constructor(
     var branchName = mutableStateOf("")
         private set
 
-    var repositories = mutableStateOf<List<Repository>>(emptyList())
-        private set
+    val repositories: StateFlow<List<Repository>> = repositoriesPreferences.repositoriesFlow
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.Lazily,
+            //started = SharingStarted.WhileSubscribed(5000),
+            //started = SharingStarted.Eagerly,
+            initialValue = emptyList()
+        )
+    
     var branches = mutableStateOf<List<Branch>>(emptyList())
         private set
 
@@ -69,20 +79,32 @@ class WorkspaceViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            repositories.value = repositoriesPreferences.repositoriesFlow.first()
-            val selectedRepo = repositoriesPreferences.selectedRepoFlow.first()
-            if (selectedRepo != null) {
-                selectRepo(selectedRepo)
-                val selectedBranchName = repositoriesPreferences.selectedBranchFlow.first()
-                if (selectedBranchName != null) {
-                    val branch = branches.value.find { it.name == selectedBranchName }
-                    if (branch != null) {
-                        onBranchSelected(branch)
+            repositoriesPreferences.selectedRepoFlow.collect { selectedRepo ->
+                if (selectedRepo != null) {
+                    selectRepo(selectedRepo)
+                    val selectedBranchName = repositoriesPreferences.selectedBranchFlow.first()
+                    if (selectedBranchName != null) {
+                        val branch = branches.value.find { it.name == selectedBranchName }
+                        if (branch != null) {
+                            onBranchSelected(branch)
+                        } else {
+                            refreshCommitList(selectedRepo)
+                        }
                     } else {
                         refreshCommitList(selectedRepo)
                     }
                 } else {
-                    refreshCommitList(selectedRepo)
+                    // Clear state when no repository is selected
+                    repoName.value = ""
+                    branchName.value = ""
+                    branches.value = emptyList()
+                    commitsByRepo.value = emptyList()
+                    unstagedFiles.value = emptySet()
+                    stagedFiles.value = emptySet()
+                    selectedUnstagedFiles.value = emptySet()
+                    selectedStagedFiles.value = emptySet()
+                    needPull.value = false
+                    needPush.value = false
                 }
             }
         }
@@ -103,7 +125,7 @@ class WorkspaceViewModel @Inject constructor(
         viewModelScope.launch {
             val selectedRepo = repositoriesPreferences.selectedRepoFlow.first()
             if (selectedRepo != null) {
-                val result = gitManager.checkoutBranch(selectedRepo, newBranch)
+                val result = gitRepository.checkoutBranch(selectedRepo, newBranch)
                 result.onSuccess { actualBranch ->
                     repositoriesPreferences.saveSelectedBranch(actualBranch)
                     branchName.value = actualBranch
@@ -127,7 +149,7 @@ class WorkspaceViewModel @Inject constructor(
             val selectedRepo = repositoriesPreferences.selectedRepoFlow.first()
             val credentials = credentialsPreferences.credentialsFlow.first()
             if (selectedRepo != null) {
-                val result = gitManager.fetch(selectedRepo, credentials)
+                val result = gitRepository.fetch(selectedRepo, credentials)
                 if (result.isSuccess) {
                     refreshCommitList(selectedRepo)
                     refreshBranches(selectedRepo)
@@ -147,7 +169,7 @@ class WorkspaceViewModel @Inject constructor(
 
             if (selectedRepo != null) {
                 // Can add isLoading state here
-                val result = gitManager.pull(selectedRepo, credentials)
+                val result = gitRepository.pull(selectedRepo, credentials)
 
                 if (result.isSuccess) {
                     refreshCommitList(selectedRepo)
@@ -167,7 +189,7 @@ class WorkspaceViewModel @Inject constructor(
             val credentials = credentialsPreferences.credentialsFlow.first()
 
             if (selectedRepo != null) {
-                val result = gitManager.push(selectedRepo, credentials)
+                val result = gitRepository.push(selectedRepo, credentials)
                 if (result.isSuccess) {
                     refreshCommitList(selectedRepo)
                     _uiEvent.emit(UiEvent.Success("Successfully pushed refs"))
@@ -208,11 +230,11 @@ class WorkspaceViewModel @Inject constructor(
             val filesToStage = selectedUnstagedFiles.value.toList()
 
             if (selectedRepo != null && filesToStage.isNotEmpty()) {
-                val result = gitManager.stageFiles(selectedRepo, filesToStage)
+                val result = gitRepository.stageFiles(selectedRepo, filesToStage)
 
                 result.onSuccess {
                     selectedUnstagedFiles.value = emptySet()
-                    refreshCommitList(selectedRepo)
+                    //refreshCommitList(selectedRepo)
                     _uiEvent.emit(UiEvent.Success("${filesToStage.size} files staged"))
                 }.onFailure { error ->
                     _uiEvent.emit(UiEvent.Error("Error: Failed to stage files (${error.localizedMessage})"))
@@ -226,7 +248,7 @@ class WorkspaceViewModel @Inject constructor(
             val selectedRepo = repositoriesPreferences.selectedRepoFlow.first()
 
             if (selectedRepo != null && unstagedFiles.value.toList().isNotEmpty()) {
-                val result = gitManager.stageAll(selectedRepo)
+                val result = gitRepository.stageAll(selectedRepo)
 
                 result.onSuccess {
                     selectedUnstagedFiles.value = emptySet()
@@ -245,7 +267,7 @@ class WorkspaceViewModel @Inject constructor(
             val filesToUnstage = selectedStagedFiles.value.toList()
 
             if (selectedRepo != null && filesToUnstage.isNotEmpty()) {
-                val result = gitManager.unstageFiles(selectedRepo, filesToUnstage)
+                val result = gitRepository.unstageFiles(selectedRepo, filesToUnstage)
 
                 result.onSuccess {
                     selectedStagedFiles.value = emptySet()
@@ -262,7 +284,7 @@ class WorkspaceViewModel @Inject constructor(
         viewModelScope.launch {
             val selectedRepo = repositoriesPreferences.selectedRepoFlow.first()
             if (selectedRepo != null) {
-                val result = gitManager.unstageFiles(selectedRepo, null)
+                val result = gitRepository.unstageFiles(selectedRepo, null)
 
                 result.onSuccess {
                     selectedStagedFiles.value = emptySet()
@@ -283,7 +305,7 @@ class WorkspaceViewModel @Inject constructor(
                 val filesToDiscard = selectedUnstagedFiles.value.toList()
 
                 if (filesToDiscard.isNotEmpty()) {
-                    val result = gitManager.discardFiles(selectedRepo, filesToDiscard)
+                    val result = gitRepository.discardFiles(selectedRepo, filesToDiscard)
 
                     result.onSuccess {
                         selectedUnstagedFiles.value = emptySet()
@@ -294,7 +316,7 @@ class WorkspaceViewModel @Inject constructor(
                     }
                 } else { // Discard all changes if no selection (TODO: Add confirmation dialog)
                     val allUnstagedFiles = unstagedFiles.value.toList()
-                    val result = gitManager.discardFiles(selectedRepo, allUnstagedFiles)
+                    val result = gitRepository.discardFiles(selectedRepo, allUnstagedFiles)
 
                     result.onSuccess {
                         refreshCommitList(selectedRepo)
@@ -311,7 +333,7 @@ class WorkspaceViewModel @Inject constructor(
 
     //region Refresh Logic
     private suspend fun refreshBranches(repoPath: String) {
-        val result = gitManager.getBranchesFullRefs(repoPath)
+        val result = gitRepository.getBranchesFullRefs(repoPath)
 
         result.onSuccess { rawBranches ->
             branches.value = transformRefsToBranches(rawBranches)
@@ -323,10 +345,10 @@ class WorkspaceViewModel @Inject constructor(
     private suspend fun refreshCommitList(repoPath: String) {
         isLoadingCommits.value = true
 
-        val commits = gitManager.getCommits(repoPath, branchName.value)
+        val commits = gitRepository.getCommits(repoPath, branchName.value)
         commitsByRepo.value = commits
 
-        val result = gitManager.getTrackingStatus(repoPath, branchName.value)
+        val result = gitRepository.getTrackingStatus(repoPath, branchName.value)
 
         result.onSuccess { (ahead, behind) ->
             needPull.value = behind > 0
@@ -340,7 +362,7 @@ class WorkspaceViewModel @Inject constructor(
     }
 
     private suspend fun refreshRepoStatus(repoPath: String) {
-        val status = gitManager.getRepoStatus(repoPath)
+        val status = gitRepository.getRepoStatus(repoPath)
         unstagedFiles.value = status["unstaged"] ?: emptySet()
         stagedFiles.value = status["staged"] ?: emptySet()
     }
@@ -397,7 +419,7 @@ class WorkspaceViewModel @Inject constructor(
                 return@launch
             }
 
-            val result = gitManager.commit(selectedRepo, gitConfig, message)
+            val result = gitRepository.commit(selectedRepo, gitConfig, message)
 
             result.onSuccess {
                 refreshCommitList(selectedRepo)

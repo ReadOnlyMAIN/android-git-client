@@ -1,12 +1,14 @@
 package fr.readonlymain.gitclient.di
 
-import android.content.Context
+import dagger.Binds
 import dagger.Module
-import dagger.Provides
 import dagger.hilt.InstallIn
-import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import fr.readonlymain.gitclient.data.preferences.CredentialsPreferences
+import fr.readonlymain.gitclient.data.preferences.DataStoreCredentialsPreferences
+import fr.readonlymain.gitclient.data.preferences.DataStoreGitConfigPreferences
+import fr.readonlymain.gitclient.data.preferences.DataStoreRepositoriesPreferences
+import fr.readonlymain.gitclient.data.preferences.DataStoreThemePreferences
 import fr.readonlymain.gitclient.data.preferences.GitConfigPreferences
 import fr.readonlymain.gitclient.data.preferences.RepositoriesPreferences
 import fr.readonlymain.gitclient.data.preferences.ThemePreferences
@@ -14,29 +16,21 @@ import javax.inject.Singleton
 
 @Module
 @InstallIn(SingletonComponent::class)
-object DataModule {
+abstract class DataModule {
 
-    @Provides
+    @Binds
     @Singleton
-    fun provideRepositoriesPreferences(@ApplicationContext context: Context): RepositoriesPreferences {
-        return RepositoriesPreferences(context)
-    }
+    abstract fun bindRepositoriesPreferences(impl: DataStoreRepositoriesPreferences): RepositoriesPreferences
 
-    @Provides
+    @Binds
     @Singleton
-    fun provideCredentialsPreferences(@ApplicationContext context: Context): CredentialsPreferences {
-        return CredentialsPreferences(context)
-    }
+    abstract fun bindGitConfigPreferences(impl: DataStoreGitConfigPreferences): GitConfigPreferences
 
-    @Provides
+    @Binds
     @Singleton
-    fun provideThemePreferences(@ApplicationContext context: Context): ThemePreferences {
-        return ThemePreferences(context)
-    }
+    abstract fun bindCredentialsPreferences(impl: DataStoreCredentialsPreferences): CredentialsPreferences
 
-    @Provides
+    @Binds
     @Singleton
-    fun provideGitConfigPreferences(@ApplicationContext context: Context): GitConfigPreferences {
-        return GitConfigPreferences(context)
-    }
+    abstract fun bindThemePreferences(impl: DataStoreThemePreferences): ThemePreferences
 }
