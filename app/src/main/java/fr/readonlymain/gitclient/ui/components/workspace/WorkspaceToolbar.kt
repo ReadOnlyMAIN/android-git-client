@@ -35,6 +35,8 @@ sealed class WorkspaceToolbarDialogState {
     data object None : WorkspaceToolbarDialogState()
     data object RepositorySelection : WorkspaceToolbarDialogState()
     data object BranchSelection : WorkspaceToolbarDialogState()
+    data object BranchCreation : WorkspaceToolbarDialogState()
+    data class BranchDeletion(val branch: Branch) : WorkspaceToolbarDialogState()
 }
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
@@ -44,6 +46,7 @@ fun WorkspaceToolbar(
     isCompact: Boolean = false,
     repositories: List<Repository>,
     branches: List<Branch>,
+    selectedBranch: String,
     onRepositorySelected: (String) -> Unit,
     onBranchSelected: (Branch) -> Unit,
     onSynchronize: () -> Unit,
@@ -176,12 +179,34 @@ fun WorkspaceToolbar(
         is WorkspaceToolbarDialogState.BranchSelection -> {
             BranchSelectorDialog(
                 branches = branches,
+                selectedBranch = selectedBranch,
                 onDismiss = { activeDialog = WorkspaceToolbarDialogState.None },
                 onBranchSelected = { branchName ->
                     activeDialog = WorkspaceToolbarDialogState.None
                     onBranchSelected(branchName)
-                }
+                },
+                onDeleteBranch = { branchName ->
+                    activeDialog = WorkspaceToolbarDialogState.BranchDeletion(branchName)
+                },
+                onCreateBranch = { }
             )
+        }
+
+        is WorkspaceToolbarDialogState.BranchCreation -> {}
+
+        is WorkspaceToolbarDialogState.BranchDeletion -> {
+            val branchToDelete = (activeDialog as WorkspaceToolbarDialogState.BranchDeletion).branch
+            //TODO: Create branch deletion popup (BranchDeletionConfirmDialog)
+            /*BranchDeletionConfirmDialog(
+                branch = branchToDelete,
+                onDismiss = {
+                    activeDialog = WorkspaceToolbarDialogState.BranchSelection
+                },
+                onConfirm = { forceDelete ->
+                    activeDialog = WorkspaceToolbarDialogState.None
+                    // onConfirmDelete(branchToDelete, forceDelete)
+                }
+            )*/
         }
 
         else -> {}
