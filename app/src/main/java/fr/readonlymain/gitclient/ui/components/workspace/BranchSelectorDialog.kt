@@ -1,6 +1,7 @@
 package fr.readonlymain.gitclient.ui.components.workspace
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement.spacedBy
 import androidx.compose.foundation.layout.Column
@@ -40,7 +41,8 @@ fun BranchSelectorDialog(
     onDismiss: () -> Unit,
     onBranchSelected: (Branch) -> Unit,
     onDeleteBranch: (Branch) -> Unit,
-    onCreateBranch: () -> Unit
+    onCreateBranch: () -> Unit,
+    isCompact: Boolean = false
 ) {
     Dialog(onDismissRequest = onDismiss) {
         Card(
@@ -106,31 +108,73 @@ fun BranchSelectorDialog(
                                     .height(IntrinsicSize.Min),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text(
-                                    text = branch.name,
-                                    style = MaterialTheme.typography.bodyLarge
-                                )
-                                Spacer(Modifier.weight(1f))
-                                Icon(
-                                    painterResource(id = R.drawable.ic_outlined_computer),
-                                    contentDescription = "local branch",
-                                    tint = if (branch.isLocal) {
-                                        MaterialTheme.colorScheme.primary
-                                    } else {
-                                        MaterialTheme.colorScheme.surfaceVariant
+                                if (isCompact) {
+                                    Column(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .padding(0.dp, 4.dp),
+                                        verticalArrangement = spacedBy(8.dp)
+                                    ) {
+                                        Text(
+                                            text = branch.name,
+                                            style = MaterialTheme.typography.bodyLarge,
+                                            modifier = Modifier.basicMarquee(),
+                                            maxLines = 1
+                                        )
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = spacedBy(8.dp)
+                                        ) {
+                                            Icon(
+                                                painterResource(id = R.drawable.ic_outlined_computer),
+                                                contentDescription = "local branch",
+                                                tint = if (branch.isLocal) {
+                                                    MaterialTheme.colorScheme.primary
+                                                } else {
+                                                    MaterialTheme.colorScheme.surfaceVariant
+                                                }
+                                            )
+                                            Icon(
+                                                painterResource(id = R.drawable.ic_outlined_cloud),
+                                                contentDescription = "remote branch",
+                                                tint = if (branch.isRemote) {
+                                                    MaterialTheme.colorScheme.primary
+                                                } else {
+                                                    MaterialTheme.colorScheme.surfaceVariant
+                                                }
+                                            )
+                                        }
                                     }
-                                )
-                                Spacer(Modifier.width(8.dp))
-                                Icon(
-                                    painterResource(id = R.drawable.ic_outlined_cloud),
-                                    contentDescription = "remote branch",
-                                    //tint = MaterialTheme.colorScheme.surfaceContainerHighest
-                                    tint = if (branch.isRemote) {
-                                        MaterialTheme.colorScheme.primary
-                                    } else {
-                                        MaterialTheme.colorScheme.surfaceVariant
-                                    }
-                                )
+                                } else {
+                                    Text(
+                                        text = branch.name,
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .basicMarquee(),
+                                        maxLines = 1
+                                    )
+                                    Spacer(Modifier.width(8.dp))
+                                    Icon(
+                                        painterResource(id = R.drawable.ic_outlined_computer),
+                                        contentDescription = "local branch",
+                                        tint = if (branch.isLocal) {
+                                            MaterialTheme.colorScheme.primary
+                                        } else {
+                                            MaterialTheme.colorScheme.surfaceVariant
+                                        }
+                                    )
+                                    Spacer(Modifier.width(8.dp))
+                                    Icon(
+                                        painterResource(id = R.drawable.ic_outlined_cloud),
+                                        contentDescription = "remote branch",
+                                        tint = if (branch.isRemote) {
+                                            MaterialTheme.colorScheme.primary
+                                        } else {
+                                            MaterialTheme.colorScheme.surfaceVariant
+                                        }
+                                    )
+                                }
                                 VerticalDivider(
                                     modifier = Modifier
                                         .fillMaxHeight()

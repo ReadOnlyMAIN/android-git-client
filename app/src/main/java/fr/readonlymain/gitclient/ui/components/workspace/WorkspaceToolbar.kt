@@ -232,7 +232,8 @@ fun WorkspaceToolbar(
                 },
                 onCreateBranch = {
                     activeDialog = WorkspaceToolbarDialogState.BranchCreation
-                }
+                },
+                isCompact = isCompact
             )
         }
 
