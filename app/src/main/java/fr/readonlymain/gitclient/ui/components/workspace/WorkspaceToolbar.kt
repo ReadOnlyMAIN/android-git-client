@@ -1,6 +1,7 @@
 package fr.readonlymain.gitclient.ui.components.workspace
 
 import androidx.compose.foundation.layout.Arrangement.spacedBy
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -97,7 +98,14 @@ fun WorkspaceToolbar(
             modifier = Modifier.size(48.dp)
         ) {
             if (isSynchronizing) {
-                CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                Box(contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_filled_close_small),
+                        contentDescription = "Cancel",
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
             } else {
                 Icon(
                     painter = painterResource(id = R.drawable.ic_outlined_sync),
@@ -111,7 +119,14 @@ fun WorkspaceToolbar(
             modifier = Modifier.size(48.dp)
         ) {
             if (isPulling) {
-                CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                Box(contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_filled_close_small),
+                        contentDescription = "Cancel",
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
             } else {
                 BadgedBox(
                     badge = {
@@ -129,11 +144,17 @@ fun WorkspaceToolbar(
         }
         IconButton(
             onClick = { onPush() },
-            enabled = !isPushing,
             modifier = Modifier.size(48.dp)
         ) {
             if (isPushing) {
-                CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                Box(contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_filled_close_small),
+                        contentDescription = "Cancel",
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
             } else {
                 BadgedBox(
                     badge = {

@@ -12,6 +12,7 @@ import fr.readonlymain.gitclient.data.preferences.CredentialsPreferences
 import fr.readonlymain.gitclient.data.preferences.GitConfigPreferences
 import fr.readonlymain.gitclient.data.preferences.RepositoriesPreferences
 import fr.readonlymain.gitclient.data.repository.GitRepository
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -84,6 +85,10 @@ class WorkspaceViewModel @Inject constructor(
 
     var isSynchronizing = mutableStateOf(false)
         private set
+
+    private var pushJob: Job? = null
+    private var pullJob: Job? = null
+    private var syncJob: Job? = null
     //endregion
 
     init {
@@ -121,16 +126,24 @@ class WorkspaceViewModel @Inject constructor(
 
     //region Repository & Branch Actions
     fun onRepositorySelected(repoPath: String) {
+        val repoInfo: Repository? = repositories.value.find { it.localPath == repoPath }
+        if (repoName.value == (repoInfo?.name ?: repoPath.substringAfterLast("/")))
+            return
+
         viewModelScope.launch {
             repositoriesPreferences.saveSelectedRepo(repoPath)
             repositoriesPreferences.resetSelectedBranch()
 
             selectRepo(repoPath)
             refreshCommitList(repoPath)
+            //_uiEvent.emit(UiEvent.Success("Successfully changed repository to ${repoName.value}"))
         }
     }
 
     fun onBranchSelected(newBranch: Branch) {
+        if (branchName.value == newBranch.name) {
+            return
+        }
         viewModelScope.launch {
             val selectedRepo = repositoriesPreferences.selectedRepoFlow.first()
             if (selectedRepo != null) {
@@ -194,7 +207,12 @@ class WorkspaceViewModel @Inject constructor(
 
     //region Remote Operations
     fun onSynchronize() {
-        viewModelScope.launch {
+        if (isSynchronizing.value) {
+            syncJob?.cancel()
+            return
+        }
+
+        syncJob = viewModelScope.launch {
             val selectedRepo = repositoriesPreferences.selectedRepoFlow.first()
             val credentials = credentialsPreferences.credentialsFlow.first()
             if (selectedRepo != null) {
@@ -217,7 +235,12 @@ class WorkspaceViewModel @Inject constructor(
     }
 
     fun onPull() {
-        viewModelScope.launch {
+        if (isPulling.value) {
+            pullJob?.cancel()
+            return
+        }
+
+        pullJob = viewModelScope.launch {
             val selectedRepo = repositoriesPreferences.selectedRepoFlow.first()
             val credentials = credentialsPreferences.credentialsFlow.first()
 
@@ -242,7 +265,12 @@ class WorkspaceViewModel @Inject constructor(
     }
 
     fun onPush() {
-        viewModelScope.launch {
+        if (isPushing.value) {
+            pushJob?.cancel()
+            return
+        }
+
+        pushJob = viewModelScope.launch {
             val selectedRepo = repositoriesPreferences.selectedRepoFlow.first()
             val credentials = credentialsPreferences.credentialsFlow.first()
 
@@ -434,7 +462,7 @@ class WorkspaceViewModel @Inject constructor(
 
     //region Internal Helpers
     private suspend fun selectRepo(repoPath: String) {
-        val repoInfo = repositories.value.find { it.localPath == repoPath }
+        val repoInfo: Repository? = repositories.value.find { it.localPath == repoPath }
         repoName.value = repoInfo?.name ?: repoPath.substringAfterLast("/")
         branchName.value = repoInfo?.defaultBranch ?: "main"
 

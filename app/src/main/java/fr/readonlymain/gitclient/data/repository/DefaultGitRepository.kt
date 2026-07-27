@@ -9,6 +9,7 @@ import fr.readonlymain.gitclient.data.model.GitConfig
 import fr.readonlymain.gitclient.data.model.GitCredential
 import fr.readonlymain.gitclient.data.model.Repository
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
 import org.eclipse.jgit.api.CreateBranchCommand
 import org.eclipse.jgit.api.Git
@@ -108,7 +109,7 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
                     }
 
                     override fun endTask() {}
-                    override fun isCancelled(): Boolean = false
+                    override fun isCancelled(): Boolean = !coroutineContext.isActive
                     override fun showDuration(enabled: Boolean) {}
                     private fun report() {
                         val p = if (total > 0) {
@@ -332,6 +333,14 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
                 try {
                     Git.open(File(repoPath)).use { git ->
                         val fetchCommand = git.fetch()
+                        fetchCommand.setProgressMonitor(object : ProgressMonitor {
+                            override fun start(totalTasks: Int) {}
+                            override fun beginTask(title: String, totalWork: Int) {}
+                            override fun update(completed: Int) {}
+                            override fun endTask() {}
+                            override fun isCancelled(): Boolean = !coroutineContext.isActive
+                            override fun showDuration(enabled: Boolean) {}
+                        })
                         if (cred != null) {
                             fetchCommand.setCredentialsProvider(
                                 UsernamePasswordCredentialsProvider(cred.username, cred.token)
@@ -356,6 +365,14 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
                 try {
                     Git.open(File(repoPath)).use { git ->
                         val pullCommand = git.pull()
+                        pullCommand.setProgressMonitor(object : ProgressMonitor {
+                            override fun start(totalTasks: Int) {}
+                            override fun beginTask(title: String, totalWork: Int) {}
+                            override fun update(completed: Int) {}
+                            override fun endTask() {}
+                            override fun isCancelled(): Boolean = !coroutineContext.isActive
+                            override fun showDuration(enabled: Boolean) {}
+                        })
 
                         if (cred != null) {
                             pullCommand.setCredentialsProvider(
@@ -388,6 +405,14 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
                 try {
                     Git.open(File(repoPath)).use { git ->
                         val pushCommand = git.push()
+                        pushCommand.setProgressMonitor(object : ProgressMonitor {
+                            override fun start(totalTasks: Int) {}
+                            override fun beginTask(title: String, totalWork: Int) {}
+                            override fun update(completed: Int) {}
+                            override fun endTask() {}
+                            override fun isCancelled(): Boolean = !coroutineContext.isActive
+                            override fun showDuration(enabled: Boolean) {}
+                        })
 
                         if (cred != null) {
                             pushCommand.setCredentialsProvider(
