@@ -17,6 +17,7 @@ import org.eclipse.jgit.api.ResetCommand
 import org.eclipse.jgit.lib.BranchTrackingStatus
 import org.eclipse.jgit.lib.ProgressMonitor
 import org.eclipse.jgit.revwalk.RevWalk
+import org.eclipse.jgit.transport.RefSpec
 import org.eclipse.jgit.transport.RemoteRefUpdate
 import org.eclipse.jgit.transport.UsernamePasswordCredentialsProvider
 import java.io.File
@@ -223,6 +224,83 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
                 )
             }
         }
+
+    override suspend fun createBranch(
+        repoPath: String,
+        newBranchName: String,
+        sourceBranch: Branch,
+        force: Boolean
+    ): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            Git.open(File(repoPath)).use { git ->
+                val startPoint =
+                    sourceBranch.localRef ?: sourceBranch.remoteRef ?: sourceBranch.name
+                git.branchCreate()
+                    .setName(newBranchName)
+                    .setStartPoint(startPoint)
+                    .setForce(force)
+                    .call()
+                Result.success(Unit)
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun deleteBranch(
+        repoPath: String,
+        branch: Branch,
+        credentials: List<GitCredential>,
+        deleteRemote: Boolean,
+        forceDelete: Boolean
+    ): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            Git.open(File(repoPath)).use { git ->
+                // Delete local branch if it exists
+                if (branch.isLocal) {
+                    git.branchDelete()
+                        .setBranchNames(branch.name)
+                        .setForce(forceDelete)
+                        .call()
+                }
+
+                if (deleteRemote && branch.isRemote) {
+                    val attempts = listOf<GitCredential?>(null) + credentials
+                    var lastException: Exception? = null
+                    var success = false
+
+                    for (cred in attempts) {
+                        try {
+                            val pushCommand = git.push()
+                                .setRemote("origin")
+                                .setRefSpecs(RefSpec(":refs/heads/${branch.name}"))
+
+                            if (cred != null) {
+                                pushCommand.setCredentialsProvider(
+                                    UsernamePasswordCredentialsProvider(cred.username, cred.token)
+                                )
+                            }
+
+                            pushCommand.call()
+                            success = true
+                            break
+                        } catch (e: Exception) {
+                            lastException = e
+                        }
+                    }
+
+                    if (!success) {
+                        return@withContext Result.failure(
+                            lastException ?: Exception("Failed to delete remote branch")
+                        )
+                    }
+                }
+                Result.success(Unit)
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 
     override suspend fun getTrackingStatus(
         repoPath: String,

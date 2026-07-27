@@ -92,10 +92,19 @@ fun WorkspaceScreen(
                     onBranchSelected = { branch ->
                         viewModel.onBranchSelected(branch)
                     },
+                    onBranchCreated = { branchName, sourceBranch, overwriteExisting ->
+                        viewModel.onBranchCreated(branchName, sourceBranch, overwriteExisting)
+                    },
+                    onBranchDeleted = { branch, deleteRemote, forceDelete ->
+                        viewModel.onBranchDeleted(branch, deleteRemote, forceDelete)
+                    },
+                    isSynchronizing = viewModel.isSynchronizing.value,
                     onSynchronize = { viewModel.onSynchronize() },
                     needPull = viewModel.needPull.value,
+                    isPulling = viewModel.isPulling.value,
                     onPull = { viewModel.onPull() },
                     needPush = viewModel.needPush.value,
+                    isPushing = viewModel.isPushing.value,
                     onPush = { viewModel.onPush() }
                 )
 
@@ -133,10 +142,19 @@ fun WorkspaceScreen(
                 onBranchSelected = { branch ->
                     viewModel.onBranchSelected(branch)
                 },
+                onBranchCreated = { branchName, sourceBranch, overwriteExisting ->
+                    viewModel.onBranchCreated(branchName, sourceBranch, overwriteExisting)
+                },
+                onBranchDeleted = { branch, deleteRemote, forceDelete ->
+                    viewModel.onBranchDeleted(branch, deleteRemote, forceDelete)
+                },
+                isSynchronizing = viewModel.isSynchronizing.value,
                 onSynchronize = { viewModel.onSynchronize() },
                 needPull = viewModel.needPull.value,
+                isPulling = viewModel.isPulling.value,
                 onPull = { viewModel.onPull() },
                 needPush = viewModel.needPush.value,
+                isPushing = viewModel.isPushing.value,
                 onPush = { viewModel.onPush() }
             )
         }

@@ -11,6 +11,7 @@ import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.HorizontalFloatingToolbar
 import androidx.compose.material3.Icon
@@ -49,11 +50,16 @@ fun WorkspaceToolbar(
     selectedBranch: String,
     onRepositorySelected: (String) -> Unit,
     onBranchSelected: (Branch) -> Unit,
+    onBranchCreated: (String, Branch, Boolean) -> Unit,
+    onBranchDeleted: (Branch, Boolean, Boolean) -> Unit,
+    isSynchronizing: Boolean,
     onSynchronize: () -> Unit,
     needPull: Boolean,
+    isPulling: Boolean,
     onPull: () -> Unit,
     needPush: Boolean,
-    onPush: () -> Unit
+    isPushing: Boolean,
+    onPush: () -> Unit,
 ) {
     var activeDialog by remember {
         mutableStateOf<WorkspaceToolbarDialogState>(
@@ -90,44 +96,57 @@ fun WorkspaceToolbar(
             onClick = { onSynchronize() },
             modifier = Modifier.size(48.dp)
         ) {
-            Icon(
-                painter = painterResource(id = R.drawable.ic_outlined_sync),
-                contentDescription = "Synchronize"
-            )
+            if (isSynchronizing) {
+                CircularProgressIndicator(modifier = Modifier.size(24.dp))
+            } else {
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_outlined_sync),
+                    contentDescription = "Synchronize"
+                )
+            }
         }
 
         IconButton(
             onClick = { onPull() },
             modifier = Modifier.size(48.dp)
         ) {
-            BadgedBox(
-                badge = {
-                    if (needPull) {
-                        Badge()
+            if (isPulling) {
+                CircularProgressIndicator(modifier = Modifier.size(24.dp))
+            } else {
+                BadgedBox(
+                    badge = {
+                        if (needPull) {
+                            Badge()
+                        }
                     }
+                ) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_outlined_download),
+                        contentDescription = "Pull"
+                    )
                 }
-            ) {
-                Icon(
-                    painter = painterResource(id = R.drawable.ic_outlined_download),
-                    contentDescription = "Pull"
-                )
             }
         }
         IconButton(
             onClick = { onPush() },
+            enabled = !isPushing,
             modifier = Modifier.size(48.dp)
         ) {
-            BadgedBox(
-                badge = {
-                    if (needPush) {
-                        Badge()
+            if (isPushing) {
+                CircularProgressIndicator(modifier = Modifier.size(24.dp))
+            } else {
+                BadgedBox(
+                    badge = {
+                        if (needPush) {
+                            Badge()
+                        }
                     }
+                ) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_outlined_upload),
+                        contentDescription = "Push"
+                    )
                 }
-            ) {
-                Icon(
-                    painter = painterResource(id = R.drawable.ic_outlined_upload),
-                    contentDescription = "Push"
-                )
             }
         }
     }
@@ -188,25 +207,38 @@ fun WorkspaceToolbar(
                 onDeleteBranch = { branchName ->
                     activeDialog = WorkspaceToolbarDialogState.BranchDeletion(branchName)
                 },
-                onCreateBranch = { }
+                onCreateBranch = {
+                    activeDialog = WorkspaceToolbarDialogState.BranchCreation
+                }
             )
         }
 
-        is WorkspaceToolbarDialogState.BranchCreation -> {}
+        is WorkspaceToolbarDialogState.BranchCreation -> {
+            BranchCreationConfirmDialog(
+                branches = branches,
+                initialSourceBranch = branches.find { it.name == selectedBranch },
+                onDismiss = {
+                    activeDialog = WorkspaceToolbarDialogState.BranchSelection
+                },
+                onConfirm = { branchName, sourceBranch, overwriteExisting ->
+                    activeDialog = WorkspaceToolbarDialogState.BranchSelection
+                    onBranchCreated(branchName, sourceBranch, overwriteExisting)
+                }
+            )
+        }
 
         is WorkspaceToolbarDialogState.BranchDeletion -> {
             val branchToDelete = (activeDialog as WorkspaceToolbarDialogState.BranchDeletion).branch
-            //TODO: Create branch deletion popup (BranchDeletionConfirmDialog)
-            /*BranchDeletionConfirmDialog(
+            BranchDeletionConfirmDialog(
                 branch = branchToDelete,
                 onDismiss = {
                     activeDialog = WorkspaceToolbarDialogState.BranchSelection
                 },
-                onConfirm = { forceDelete ->
+                onConfirm = { deleteRemote, forceDelete ->
                     activeDialog = WorkspaceToolbarDialogState.None
-                    // onConfirmDelete(branchToDelete, forceDelete)
+                    onBranchDeleted(branchToDelete, deleteRemote, forceDelete)
                 }
-            )*/
+            )
         }
 
         else -> {}

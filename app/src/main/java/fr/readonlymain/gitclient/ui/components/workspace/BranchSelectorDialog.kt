@@ -1,5 +1,6 @@
 package fr.readonlymain.gitclient.ui.components.workspace
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement.spacedBy
 import androidx.compose.foundation.layout.Column
@@ -87,13 +88,16 @@ fun BranchSelectorDialog(
                         }
                     }
                     items(branches) { branch ->
+                        val isSelected = branch.name == selectedBranch
                         Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { onBranchSelected(branch) },
+                            modifier = Modifier.fillMaxWidth(),
                             colors = CardDefaults.cardColors(
                                 containerColor = MaterialTheme.colorScheme.surface
                             ),
+                            border = if (isSelected) BorderStroke(
+                                width = 1.dp,
+                                color = MaterialTheme.colorScheme.primary
+                            ) else null,
                             onClick = { onBranchSelected(branch) }
                         ) {
                             Row(
@@ -136,19 +140,18 @@ fun BranchSelectorDialog(
                                 )
                                 IconButton(
                                     onClick = { onDeleteBranch(branch) },
-                                    enabled = selectedBranch != branch.name
+                                    enabled = !isSelected
                                 ) {
                                     Icon(
                                         painterResource(id = R.drawable.ic_outlined_delete),
                                         contentDescription = "delete branch",
-                                        tint = if (selectedBranch != branch.name) {
-                                            MaterialTheme.colorScheme.error
-                                        } else {
+                                        tint = if (isSelected) {
                                             MaterialTheme.colorScheme.surfaceVariant
+                                        } else {
+                                            MaterialTheme.colorScheme.error
                                         }
                                     )
                                 }
-                                onDeleteBranch
                             }
                         }
                     }
