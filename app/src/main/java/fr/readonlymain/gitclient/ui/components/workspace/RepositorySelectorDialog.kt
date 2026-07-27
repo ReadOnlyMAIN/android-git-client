@@ -1,6 +1,8 @@
 package fr.readonlymain.gitclient.ui.components.workspace
 
+import android.os.Environment
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.layout.Arrangement.spacedBy
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -79,12 +81,19 @@ fun RepositorySelectorDialog(
                                 Column {
                                     Text(
                                         text = repo.name,
-                                        style = MaterialTheme.typography.bodyLarge
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        modifier = Modifier.basicMarquee(),
+                                        maxLines = 1
                                     )
+                                    val internalStoragePath =
+                                        Environment.getExternalStorageDirectory().absolutePath
                                     Text(
-                                        text = repo.localPath,
+                                        text = repo.localPath.removePrefix(internalStoragePath)
+                                            .trimStart('/'),
                                         style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.outline
+                                        color = MaterialTheme.colorScheme.outline,
+                                        modifier = Modifier.basicMarquee(),
+                                        maxLines = 1
                                     )
                                 }
                             }
