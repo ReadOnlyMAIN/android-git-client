@@ -1,6 +1,6 @@
 package fr.readonlymain.gitclient.ui.components.workspace
 
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement.spacedBy
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -30,6 +30,7 @@ import fr.readonlymain.gitclient.data.model.Repository
 @Composable
 fun RepositorySelectorDialog(
     repositories: List<Repository>,
+    selectedRepository: String,
     onDismiss: () -> Unit,
     onRepositorySelected: (String) -> Unit
 ) {
@@ -53,13 +54,17 @@ fun RepositorySelectorDialog(
 
                 LazyColumn(verticalArrangement = spacedBy(8.dp)) {
                     items(repositories) { repo ->
+                        val isSelected = repo.name == selectedRepository
                         Card(
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { onRepositorySelected(repo.localPath) },
+                                .fillMaxWidth(),
                             colors = CardDefaults.cardColors(
                                 containerColor = MaterialTheme.colorScheme.surface
                             ),
+                            border = if (isSelected) BorderStroke(
+                                width = 1.dp,
+                                color = MaterialTheme.colorScheme.primary
+                            ) else null,
                             onClick = { onRepositorySelected(repo.localPath) }
                         ) {
                             Row(

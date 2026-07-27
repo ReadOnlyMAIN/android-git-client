@@ -84,6 +84,7 @@ fun WorkspaceScreen(
                     modifier = Modifier,
                     isCompact = false,
                     repositories = viewModel.repositories.collectAsState().value,
+                    selectedRepository = viewModel.repoName.value,
                     branches = viewModel.branches.value,
                     selectedBranch = viewModel.branchName.value,
                     onRepositorySelected = { path ->
@@ -134,6 +135,7 @@ fun WorkspaceScreen(
                     .align(Alignment.BottomCenter),
                 isCompact = true,
                 repositories = viewModel.repositories.collectAsState().value,
+                selectedRepository = viewModel.repoName.value,
                 branches = viewModel.branches.value,
                 selectedBranch = viewModel.branchName.value,
                 onRepositorySelected = { path ->

@@ -47,6 +47,7 @@ fun WorkspaceToolbar(
     modifier: Modifier,
     isCompact: Boolean = false,
     repositories: List<Repository>,
+    selectedRepository: String,
     branches: List<Branch>,
     selectedBranch: String,
     onRepositorySelected: (String) -> Unit,
@@ -208,6 +209,7 @@ fun WorkspaceToolbar(
         is WorkspaceToolbarDialogState.RepositorySelection -> {
             RepositorySelectorDialog(
                 repositories = repositories,
+                selectedRepository = selectedRepository,
                 onDismiss = { activeDialog = WorkspaceToolbarDialogState.None },
                 onRepositorySelected = { repoName ->
                     activeDialog = WorkspaceToolbarDialogState.None
