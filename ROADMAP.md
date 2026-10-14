@@ -37,7 +37,7 @@ Correcting the data and behavior behind the existing interface is in scope. New 
 | Identify selected repositories by stable identity / canonical path, rather than display name | 🟢 Implemented — validation pending |
 | Read the actual checked-out branch instead of assuming `main` or a saved default | 🟢 Implemented — validation pending |
 | Clear or reconcile file selections when switching repository or branch | 🟢 Implemented — validation pending |
-| Prevent stale asynchronous results from overwriting the current repository state | 🔴 Planned |
+| Prevent stale asynchronous results from overwriting the current repository state | 🟢 Implemented — validation pending |
 | Prevent duplicate local imports using canonical repository paths and existing error reporting | 🔴 Planned |
 | Validate remote branch deletion results and distinguish partial local / remote success | 🔴 Planned |
 | Distinguish authentication failures, transport failures, Git rejections, and merge conflicts internally | 🔴 Planned |

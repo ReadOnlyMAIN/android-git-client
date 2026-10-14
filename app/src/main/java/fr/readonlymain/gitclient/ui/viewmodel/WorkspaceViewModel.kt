@@ -19,6 +19,8 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -91,11 +93,13 @@ class WorkspaceViewModel @Inject constructor(
     private var pullJob: Job? = null
     private var syncJob: Job? = null
     private var selectedRepositoryPath: String? = null
+    private var contextVersion = 0L
     //endregion
 
     init {
         viewModelScope.launch {
-            repositoriesPreferences.selectedRepoFlow.collect { selectedRepo ->
+            repositoriesPreferences.selectedRepoFlow.distinctUntilChanged().collectLatest { selectedRepo ->
+                contextVersion++
                 if (selectedRepo != null) {
                     selectRepo(selectedRepo)
                     refreshCommitList(selectedRepo)
@@ -123,11 +127,10 @@ class WorkspaceViewModel @Inject constructor(
             return
 
         viewModelScope.launch {
+            contextVersion++
+            selectedRepositoryPath = canonicalRepositoryPath(repoPath)
             repositoriesPreferences.saveSelectedRepo(repoPath)
             repositoriesPreferences.resetSelectedBranch()
-
-            selectRepo(repoPath)
-            refreshCommitList(repoPath)
             //_uiEvent.emit(UiEvent.Success("Successfully changed repository to ${repoName.value}"))
         }
     }
@@ -139,8 +142,11 @@ class WorkspaceViewModel @Inject constructor(
         viewModelScope.launch {
             val selectedRepo = repositoriesPreferences.selectedRepoFlow.first()
             if (selectedRepo != null) {
+                val version = contextVersion
                 val result = gitRepository.checkoutBranch(selectedRepo, newBranch)
                 result.onSuccess { actualBranch ->
+                    if (version != contextVersion || !isCurrentRepo(selectedRepo)) return@onSuccess
+                    contextVersion++
                     clearFileSelections()
                     repositoriesPreferences.saveSelectedBranch(actualBranch)
                     branchName.value = actualBranch
@@ -418,7 +424,9 @@ class WorkspaceViewModel @Inject constructor(
 
     //region Refresh Logic
     private suspend fun refreshBranches(repoPath: String) {
+        val version = contextVersion
         val result = gitRepository.getBranchesFullRefs(repoPath)
+        if (version != contextVersion || !isCurrentRepo(repoPath)) return
 
         result.onSuccess { rawBranches ->
             branches.value = transformRefsToBranches(rawBranches)
@@ -428,12 +436,17 @@ class WorkspaceViewModel @Inject constructor(
     }
 
     private suspend fun refreshCommitList(repoPath: String) {
+        if (!isCurrentRepo(repoPath)) return
+        val version = contextVersion
+        val branch = branchName.value
         isLoadingCommits.value = true
-
-        val commits = gitRepository.getCommits(repoPath, branchName.value)
+        try {
+        val commits = gitRepository.getCommits(repoPath, branch)
+        if (version != contextVersion || !isCurrentRepo(repoPath)) return
         commitsByRepo.value = commits
 
-        val result = gitRepository.getTrackingStatus(repoPath, branchName.value)
+        val result = gitRepository.getTrackingStatus(repoPath, branch)
+        if (version != contextVersion || !isCurrentRepo(repoPath)) return
 
         result.onSuccess { (ahead, behind) ->
             needPull.value = behind > 0
@@ -443,11 +456,15 @@ class WorkspaceViewModel @Inject constructor(
         }
 
         refreshRepoStatus(repoPath)
-        isLoadingCommits.value = false
+        } finally {
+            if (version == contextVersion) isLoadingCommits.value = false
+        }
     }
 
     private suspend fun refreshRepoStatus(repoPath: String) {
+        val version = contextVersion
         val status = gitRepository.getRepoStatus(repoPath)
+        if (version != contextVersion || !isCurrentRepo(repoPath)) return
         unstagedFiles.value = status["unstaged"] ?: emptySet()
         stagedFiles.value = status["staged"] ?: emptySet()
         selectedUnstagedFiles.value = selectedUnstagedFiles.value.intersect(unstagedFiles.value)
@@ -457,6 +474,7 @@ class WorkspaceViewModel @Inject constructor(
 
     //region Internal Helpers
     private suspend fun selectRepo(repoPath: String) {
+        val version = contextVersion
         clearFileSelections()
         selectedRepositoryPath = canonicalRepositoryPath(repoPath)
         val repoInfo = repositoriesPreferences.repositoriesFlow.first().find {
@@ -464,6 +482,7 @@ class WorkspaceViewModel @Inject constructor(
         }
         repoName.value = repoInfo?.name ?: repoPath.substringAfterLast("/")
         gitRepository.getCurrentBranch(repoPath).onSuccess {
+            if (version != contextVersion || !isCurrentRepo(repoPath)) return@onSuccess
             branchName.value = it
         }.onFailure {
             branchName.value = ""
@@ -472,6 +491,9 @@ class WorkspaceViewModel @Inject constructor(
 
         refreshBranches(repoPath)
     }
+
+    private fun isCurrentRepo(path: String): Boolean =
+        selectedRepositoryPath == canonicalRepositoryPath(path)
 
     private fun transformRefsToBranches(refs: List<String>): List<Branch> {
         val branchMap = mutableMapOf<String, Branch>()
