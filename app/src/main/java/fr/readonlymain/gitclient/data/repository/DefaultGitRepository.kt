@@ -81,7 +81,7 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
         }
 
         // Attempts list : First null (public), then saved credentials
-        val attempts = listOf<GitCredential?>(null) + credentials
+        val attempts = credentialAttempts(url, credentials)
         var lastErrorMessage = "Authentification Failed"
 
         for (cred in attempts) {
@@ -284,7 +284,8 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
                 }
 
                 if (deleteRemote && branch.isRemote) {
-                    val attempts = listOf<GitCredential?>(null) + credentials
+                    val remote = branch.remoteRef?.removePrefix("refs/remotes/")?.substringBefore("/") ?: "origin"
+                    val attempts = credentialAttempts(remoteUrl(repoPath, remote, true), credentials)
                     var lastException: Exception? = null
                     var success = false
 
@@ -341,6 +342,22 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
     //endregion
 
     //region Remote Operations
+    private fun remoteName(repoPath: String, push: Boolean = false): String =
+        Git.open(File(repoPath)).use { git ->
+            val config = git.repository.config
+            (if (push) config.getString("branch", git.repository.branch, "pushRemote")
+                ?: config.getString("remote", null, "pushDefault") else null)
+                ?: config.getString("branch", git.repository.branch, "remote") ?: "origin"
+        }
+
+    private fun remoteUrl(repoPath: String, remote: String, push: Boolean = false): String =
+        Git.open(File(repoPath)).use { git ->
+            val config = git.repository.config
+            (if (push) config.getString("remote", remote, "pushurl") else null)
+                ?: config.getString("remote", remote, "url")
+                ?: throw IllegalArgumentException("Remote has no URL: $remote")
+        }
+
     private fun validatePushResults(results: Iterable<org.eclipse.jgit.transport.PushResult>) {
         results.forEach { result ->
             result.remoteUpdates.forEach { update ->
@@ -354,13 +371,14 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
     }
     override suspend fun fetch(repoPath: String, credentials: List<GitCredential>): Result<Unit> =
         withContext(Dispatchers.IO) {
-            val attempts = listOf<GitCredential?>(null) + credentials
+            val remote = remoteName(repoPath)
+            val attempts = credentialAttempts(remoteUrl(repoPath, remote), credentials)
             var lastException: Exception? = null
 
             for (cred in attempts) {
                 try {
                     Git.open(File(repoPath)).use { git ->
-                        val fetchCommand = git.fetch()
+                        val fetchCommand = git.fetch().setRemote(remote)
                         fetchCommand.setProgressMonitor(object : ProgressMonitor {
                             override fun start(totalTasks: Int) {}
                             override fun beginTask(title: String, totalWork: Int) {}
@@ -387,13 +405,14 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
 
     override suspend fun pull(repoPath: String, credentials: List<GitCredential>): Result<Unit> =
         withContext(Dispatchers.IO) {
-            val attempts = listOf<GitCredential?>(null) + credentials
+            val remote = remoteName(repoPath)
+            val attempts = credentialAttempts(remoteUrl(repoPath, remote), credentials)
             var lastException: Exception? = null
 
             for (cred in attempts) {
                 try {
                     Git.open(File(repoPath)).use { git ->
-                        val pullCommand = git.pull()
+                        val pullCommand = git.pull().setRemote(remote)
                         pullCommand.setProgressMonitor(object : ProgressMonitor {
                             override fun start(totalTasks: Int) {}
                             override fun beginTask(title: String, totalWork: Int) {}
@@ -432,13 +451,14 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
 
     override suspend fun push(repoPath: String, credentials: List<GitCredential>): Result<Unit> =
         withContext(Dispatchers.IO) {
-            val attempts = listOf<GitCredential?>(null) + credentials
+            val remote = remoteName(repoPath, true)
+            val attempts = credentialAttempts(remoteUrl(repoPath, remote, true), credentials)
             var lastException: Exception? = null
 
             for (cred in attempts) {
                 try {
                     Git.open(File(repoPath)).use { git ->
-                        val pushCommand = git.push()
+                        val pushCommand = git.push().setRemote(remote)
                         pushCommand.setProgressMonitor(object : ProgressMonitor {
                             override fun start(totalTasks: Int) {}
                             override fun beginTask(title: String, totalWork: Int) {}
