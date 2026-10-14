@@ -36,7 +36,7 @@ Correcting the data and behavior behind the existing interface is in scope. New 
 | Refresh repository status consistently after staging, unstaging, checkout, pull, and commit | 🟢 Implemented — validation pending |
 | Identify selected repositories by stable identity / canonical path, rather than display name | 🟢 Implemented — validation pending |
 | Read the actual checked-out branch instead of assuming `main` or a saved default | 🟢 Implemented — validation pending |
-| Clear or reconcile file selections when switching repository or branch | 🔴 Planned |
+| Clear or reconcile file selections when switching repository or branch | 🟢 Implemented — validation pending |
 | Prevent stale asynchronous results from overwriting the current repository state | 🔴 Planned |
 | Prevent duplicate local imports using canonical repository paths and existing error reporting | 🔴 Planned |
 | Validate remote branch deletion results and distinguish partial local / remote success | 🔴 Planned |

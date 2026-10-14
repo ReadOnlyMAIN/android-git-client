@@ -141,6 +141,7 @@ class WorkspaceViewModel @Inject constructor(
             if (selectedRepo != null) {
                 val result = gitRepository.checkoutBranch(selectedRepo, newBranch)
                 result.onSuccess { actualBranch ->
+                    clearFileSelections()
                     repositoriesPreferences.saveSelectedBranch(actualBranch)
                     branchName.value = actualBranch
 
@@ -449,11 +450,14 @@ class WorkspaceViewModel @Inject constructor(
         val status = gitRepository.getRepoStatus(repoPath)
         unstagedFiles.value = status["unstaged"] ?: emptySet()
         stagedFiles.value = status["staged"] ?: emptySet()
+        selectedUnstagedFiles.value = selectedUnstagedFiles.value.intersect(unstagedFiles.value)
+        selectedStagedFiles.value = selectedStagedFiles.value.intersect(stagedFiles.value)
     }
     //endregion
 
     //region Internal Helpers
     private suspend fun selectRepo(repoPath: String) {
+        clearFileSelections()
         selectedRepositoryPath = canonicalRepositoryPath(repoPath)
         val repoInfo = repositoriesPreferences.repositoriesFlow.first().find {
             canonicalRepositoryPath(it.localPath) == selectedRepositoryPath
@@ -498,6 +502,11 @@ class WorkspaceViewModel @Inject constructor(
     }
 
     //endregion
+
+    private fun clearFileSelections() {
+        selectedUnstagedFiles.value = emptySet()
+        selectedStagedFiles.value = emptySet()
+    }
 
     fun onCommit(message: String, onCommitSuccess: () -> Unit) {
         viewModelScope.launch {
