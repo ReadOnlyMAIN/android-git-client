@@ -437,7 +437,6 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
             try {
                 Git.open(File(repoPath)).use { git ->
                     val repo = git.repository
-                    val walk = RevWalk(repo)
 
                     val targetBranch = if (branchName.isNullOrBlank()) repo.branch else branchName
 
@@ -453,7 +452,7 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
 
                     // Add all remote tracking branches with that name
                     repo.refDatabase.getRefsByPrefix("refs/remotes/").forEach { ref ->
-                        if (ref.name.endsWith("/$targetBranch")) {
+                        if (ref.name.removePrefix("refs/remotes/").substringAfter('/') == targetBranch) {
                             logCommand.add(ref.objectId)
                             hasStarted = true
                         }
@@ -463,20 +462,29 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
                         repo.resolve("HEAD")?.let { logCommand.add(it) }
                     }
 
-                    val localRefs = repo.refDatabase.getRefsByPrefix("refs/heads/")
-                        .map { walk.parseCommit(it.objectId) }
-                    val remoteRefs = repo.refDatabase.getRefsByPrefix("refs/remotes/")
-                        .map { walk.parseCommit(it.objectId) }
+                    suspend fun reachable(prefix: String): Set<String> = RevWalk(repo).use { walk ->
+                        repo.refDatabase.getRefsByPrefix(prefix).forEach { ref ->
+                            walk.markStart(walk.parseCommit(ref.objectId))
+                        }
+                        buildSet {
+                            for (commit in walk) {
+                                coroutineContext.ensureActive()
+                                add(commit.name)
+                            }
+                        }
+                    }
+                    // Two linear traversals replace a reachability walk for every commit/ref pair.
+                    val localCommits = reachable("refs/heads/")
+                    val remoteCommits = reachable("refs/remotes/")
 
                     val logs = logCommand.call()
 
                     for (rev in logs) {
+                        coroutineContext.ensureActive()
                         val author = rev.authorIdent
                         val date = Date(rev.commitTime.toLong() * 1000)
-                        val currentCommit = walk.parseCommit(rev.id)
-
-                        val isLocal = localRefs.any { walk.isMergedInto(currentCommit, it) }
-                        val isRemote = remoteRefs.any { walk.isMergedInto(currentCommit, it) }
+                        val isLocal = rev.name in localCommits
+                        val isRemote = rev.name in remoteCommits
 
                         val status = when {
                             isLocal && isRemote -> CommitStatus.SYNCED

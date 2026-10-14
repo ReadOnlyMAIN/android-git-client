@@ -63,7 +63,7 @@ Correcting the data and behavior behind the existing interface is in scope. New 
 | Coordinate operations per repository to prevent conflicting mutations and duplicate refreshes | 🟢 Implemented — validation pending |
 | Preserve coroutine cancellation through exception handling and stop retry loops after cancellation | 🟢 Implemented — validation pending |
 | Consolidate repeated authentication, progress-monitor, and error-handling logic | 🟢 Implemented — validation pending |
-| Optimize history traversal and commit tracking calculations without changing the interface | 🔴 Planned |
+| Optimize history traversal and commit tracking calculations without changing the interface | 🟢 Implemented — validation pending |
 | Close JGit resources consistently and avoid unnecessary full-history reloads | 🔴 Planned |
 | Introduce typed repository status and coherent read-only workspace state while preserving the UI | 🔴 Planned |
 | Align dependency versions and review release shrinking rules without changing UI behavior | 🔴 Planned |
