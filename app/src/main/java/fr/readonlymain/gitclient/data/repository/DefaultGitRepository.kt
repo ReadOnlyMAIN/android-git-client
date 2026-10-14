@@ -69,10 +69,14 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
         localPath: String,
         onProgress: (String, Float) -> Unit
     ): Result<CloneResult> = withContext(Dispatchers.IO) {
-        val folderName = url.substringAfterLast("/").replace(".git", "")
+        val folderName = url.trimEnd('/').substringAfterLast("/").removeSuffix(".git")
+        if (!folderName.matches(Regex("[A-Za-z0-9._-]+")) || folderName in setOf(".", "..", ".git")) {
+            return@withContext Result.failure(IllegalArgumentException("Invalid repository folder name"))
+        }
         val localFolder = File(localPath, folderName)
 
-        if (localFolder.exists()) {
+        // Atomic ownership reservation: never clean a pre-existing directory.
+        if (!localFolder.mkdir()) {
             return@withContext Result.failure(Exception("Folder already exists."))
         }
 
@@ -82,8 +86,10 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
 
         for (cred in attempts) {
             try {
-                if (localFolder.exists()) localFolder.deleteRecursively()
-                localFolder.mkdirs()
+                if (cred != attempts.first() && localFolder.exists()) {
+                    deleteOwnedCloneDirectory(localFolder)
+                    check(localFolder.mkdir()) { "Cannot recreate clone directory" }
+                }
 
                 val statusText = if (cred == null) "Public access attempt..."
                 else "Trying with ${cred.accountName}..."
@@ -151,7 +157,7 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
             }
         }
 
-        if (localFolder.exists()) localFolder.deleteRecursively()
+        if (localFolder.exists()) deleteOwnedCloneDirectory(localFolder)
         Result.failure(Exception("Can't clone repository. Last error: $lastErrorMessage"))
     }
 
@@ -588,7 +594,7 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
             try {
                 Git.open(File(repoPath)).use { git ->
                     git.reset().setMode(ResetCommand.ResetType.HARD).call()
-                    git.clean().setCleanDirectories(true).setIgnore(false).call()
+                    git.clean().setCleanDirectories(true).setIgnore(true).call()
                     Result.success(Unit)
                 }
             } catch (e: Exception) {
@@ -604,6 +610,12 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
                     val trackedToCheckout = mutableListOf<String>()
                     val untrackedToDelete = mutableListOf<String>()
 
+                    // Validate every path before making any mutation.
+                    val allowed = status.modified + status.missing + status.untracked
+                    filePatterns.forEach { path ->
+                        checkedRepositoryFile(repoPath, path)
+                        require(path in allowed) { "File is not an unstaged change: $path" }
+                    }
                     filePatterns.forEach { path ->
                         if (status.untracked.contains(path)) {
                             untrackedToDelete.add(path)
@@ -619,7 +631,8 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
                     }
 
                     untrackedToDelete.forEach { path ->
-                        File(repoPath, path).delete()
+                        val file = checkedRepositoryFile(repoPath, path)
+                        check(file.delete() || !file.exists()) { "Cannot delete untracked file: $path" }
                     }
 
                     Result.success(Unit)
