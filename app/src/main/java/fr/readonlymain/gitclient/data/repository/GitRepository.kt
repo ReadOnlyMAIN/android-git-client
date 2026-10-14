@@ -7,11 +7,24 @@ import fr.readonlymain.gitclient.data.model.GitConfig
 import fr.readonlymain.gitclient.data.model.GitCredential
 import fr.readonlymain.gitclient.data.model.Repository
 import fr.readonlymain.gitclient.data.model.RepositoryStatus
+import fr.readonlymain.gitclient.data.model.WorkspaceSnapshot
+import fr.readonlymain.gitclient.data.model.branchesFromRefs
 
 /**
  * Interface defining the Git operations supported by the application.
  */
 interface GitRepository {
+    suspend fun readWorkspace(repoPath: String): WorkspaceSnapshot {
+        val branch = getCurrentBranch(repoPath).getOrThrow()
+        val branches = getBranches(repoPath).getOrThrow()
+        val commits = getCommits(repoPath, branch)
+        val (ahead, behind) = getTrackingStatus(repoPath, branch).getOrThrow()
+        return WorkspaceSnapshot(branch, branches, commits, ahead, behind, getRepoStatus(repoPath))
+    }
+
+    suspend fun getBranches(repoPath: String): Result<List<Branch>> =
+        getBranchesFullRefs(repoPath).map { branchesFromRefs(it) }
+
     /** Actual symbolic branch, or the object ID when HEAD is detached. */
     suspend fun getCurrentBranch(repoPath: String): Result<String>
 

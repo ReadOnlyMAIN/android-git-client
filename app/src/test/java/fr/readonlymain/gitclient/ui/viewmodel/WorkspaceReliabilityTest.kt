@@ -44,6 +44,7 @@ class WorkspaceReliabilityTest {
     @Test fun `a late old repository snapshot cannot overwrite a newer selection`() = runTest {
         val gate = CompletableDeferred<Unit>()
         val repository = object : GitRepository by fake {
+            override suspend fun readWorkspace(repoPath: String) = super<GitRepository>.readWorkspace(repoPath)
             override suspend fun getCommits(repoPath: String, branchName: String?): List<CommitInfo> {
                 if (canonicalRepositoryPath(repoPath) == canonicalRepositoryPath("/old")) {
                     withContext(NonCancellable) { gate.await() }
@@ -76,7 +77,7 @@ class WorkspaceReliabilityTest {
     }
 
     @Test fun `duplicate imports report an error and preserve the original entry`() = runTest {
-        val vm = RepositoriesViewModel(fake, preferences)
+        val vm = RepositoriesViewModel(fake, preferences, FakeCredentialsPreferences())
         vm.uiEvent.test {
             vm.startImport("/repo")
             assertThat(awaitItem()).isInstanceOf(UiEvent.Success::class.java)
@@ -115,6 +116,7 @@ class WorkspaceReliabilityTest {
         val repository = object : GitRepository by fake {
             override suspend fun checkoutBranch(repoPath: String, branch: Branch): Result<String> {
                 gate.await()
+                fake.currentBranch = branch.name
                 return Result.success(branch.name)
             }
             override suspend fun stageFiles(repoPath: String, filePatterns: List<String>): Result<Unit> {
@@ -131,5 +133,63 @@ class WorkspaceReliabilityTest {
         gate.complete(Unit)
         assertThat(staged).isFalse()
         assertThat(vm.branchName.value).isEqualTo("feature")
+    }
+
+    @Test fun `successful commit remains successful when the following refresh fails`() = runTest {
+        var failRefresh = false
+        val repository = object : GitRepository by fake {
+            override suspend fun readWorkspace(repoPath: String): WorkspaceSnapshot {
+                if (failRefresh) error("refresh unavailable")
+                return fake.readWorkspace(repoPath)
+            }
+        }
+        fake.statusToReturn = mapOf("staged" to setOf("file.txt"))
+        val vm = viewModel(repository)
+        vm.onRepositorySelected("/repo")
+        failRefresh = true
+        var saved = false
+        vm.uiEvent.test {
+            vm.onCommit("commit") { saved = true }
+            assertThat((awaitItem() as UiEvent.Error).message).contains("Operation completed")
+            assertThat(awaitItem()).isInstanceOf(UiEvent.Success::class.java)
+            assertThat(saved).isTrue()
+        }
+    }
+
+    @Test fun `refresh failure does not hide the original Git rejection`() = runTest {
+        var failRefresh = false
+        val rejection = IllegalStateException("original push rejection")
+        val repository = object : GitRepository by fake {
+            override suspend fun readWorkspace(repoPath: String): WorkspaceSnapshot {
+                if (failRefresh) error("secondary refresh failure")
+                return fake.readWorkspace(repoPath)
+            }
+            override suspend fun push(repoPath: String, credentials: List<GitCredential>) = Result.failure<Unit>(rejection)
+        }
+        val vm = viewModel(repository)
+        vm.onRepositorySelected("/repo")
+        failRefresh = true
+        vm.uiEvent.test {
+            vm.onPush()
+            assertThat((awaitItem() as UiEvent.Error).message).contains("original push rejection")
+            assertThat(rejection.suppressed).hasLength(1)
+            assertThat(vm.isPushing.value).isFalse()
+        }
+    }
+
+    @Test fun `failed selection persistence restores the previous workspace`() = runTest {
+        val preferences = object : RepositoriesPreferences by this@WorkspaceReliabilityTest.preferences {
+            override suspend fun saveSelectedRepo(path: String) {
+                if (path == canonicalRepositoryPath("/bad")) error("disk unavailable")
+                this@WorkspaceReliabilityTest.preferences.saveSelectedRepo(path)
+            }
+        }
+        val vm = WorkspaceViewModel(fake, preferences, FakeCredentialsPreferences(), FakeGitConfigPreferences())
+        vm.onRepositorySelected("/good")
+        vm.uiEvent.test {
+            vm.onRepositorySelected("/bad")
+            assertThat((awaitItem() as UiEvent.Error).message).isEqualTo("Cannot save selected repository")
+            assertThat(vm.uiState.value.repositoryPath).isEqualTo(canonicalRepositoryPath("/good"))
+        }
     }
 }

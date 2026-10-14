@@ -2,6 +2,8 @@ package fr.readonlymain.gitclient.ui.navigation
 
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -12,6 +14,8 @@ import fr.readonlymain.gitclient.ui.screen.WorkspaceScreen
 import fr.readonlymain.gitclient.ui.theme.ThemeMode
 import fr.readonlymain.gitclient.ui.viewmodel.RepositoriesViewModel
 import fr.readonlymain.gitclient.ui.viewmodel.WorkspaceViewModel
+import fr.readonlymain.gitclient.ui.viewmodel.SettingsViewModel
+import fr.readonlymain.gitclient.ui.components.ObserveUiEvents
 import fr.readonlymain.gitclient.utils.materialFadeThroughIn
 import fr.readonlymain.gitclient.utils.materialFadeThroughOut
 
@@ -23,8 +27,11 @@ fun AppNavHost(
     snackbarHostState: SnackbarHostState,
     isCompact: Boolean = false,
     workspaceViewModel: WorkspaceViewModel = hiltViewModel(),
-    repositoriesViewModel: RepositoriesViewModel = hiltViewModel()
+    repositoriesViewModel: RepositoriesViewModel = hiltViewModel(),
+    settingsViewModel: SettingsViewModel = hiltViewModel()
 ) {
+    val settings by settingsViewModel.uiState.collectAsStateWithLifecycle()
+    ObserveUiEvents(settingsViewModel.uiEvent, snackbarHostState)
     NavHost(
         navController = navController,
         startDestination = Route.Workspace.route,
@@ -50,7 +57,11 @@ fun AppNavHost(
         composable(Route.Settings.route) {
             SettingsScreen(
                 themeMode = themeMode,
-                onThemeChange = onThemeChange
+                onThemeChange = onThemeChange,
+                state = settings,
+                onAddCredential = { name, username, token, success -> settingsViewModel.addCredential(name, username, token, success) },
+                onDeleteCredential = { settingsViewModel.deleteCredential(it) },
+                onSaveGitConfig = { name, email, success -> settingsViewModel.setGitConfig(name, email, success) }
             )
         }
     }

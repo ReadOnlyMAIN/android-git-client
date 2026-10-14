@@ -16,10 +16,11 @@ import fr.readonlymain.gitclient.data.preferences.RepositoriesPreferences
 import fr.readonlymain.gitclient.data.repository.GitRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
@@ -56,21 +57,28 @@ class WorkspaceViewModel @Inject constructor(
     val isPulling = select { it.isPulling }
     val isSynchronizing = select { it.isSynchronizing }
 
-    val repositories: StateFlow<List<Repository>> = repositoriesPreferences.repositoriesFlow.stateIn(
+    private val events = Channel<UiEvent>(Channel.BUFFERED)
+    val uiEvent = events.receiveAsFlow()
+    val repositories: StateFlow<List<Repository>> = repositoriesPreferences.repositoriesFlow.catch { error ->
+        if (error is CancellationException) throw error
+        events.send(UiEvent.Error("Cannot read saved repositories"))
+    }.stateIn(
         viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList()
     )
-    private val events = MutableSharedFlow<UiEvent>()
-    val uiEvent = events.asSharedFlow()
     private val actions = Mutex()
     private val refreshes = Mutex()
     private var version = 0L
     private var pushJob: Job? = null
     private var pullJob: Job? = null
     private var syncJob: Job? = null
+    private var selectionJob: Job? = null
 
     init {
         viewModelScope.launch {
-            repositoriesPreferences.selectedRepoFlow.distinctUntilChanged().collectLatest { path ->
+            repositoriesPreferences.selectedRepoFlow.catch { error ->
+                if (error is CancellationException) throw error
+                events.send(UiEvent.Error("Cannot read selected repository"))
+            }.distinctUntilChanged().collectLatest { path ->
                 val generation = ++version
                 state.value = WorkspaceUiState(repositoryPath = path?.let(::canonicalRepositoryPath))
                 safely {
@@ -78,11 +86,9 @@ class WorkspaceViewModel @Inject constructor(
                         val repository = repositoriesPreferences.repositoriesFlow.first().find {
                             canonicalRepositoryPath(it.localPath) == canonicalRepositoryPath(path)
                         }
-                        val actualBranch = gitRepository.getCurrentBranch(path).getOrThrow()
                         if (generation != version) return@safely
                         state.value = state.value.copy(
-                            repositoryName = repository?.name ?: java.io.File(path).name,
-                            branchName = actualBranch
+                            repositoryName = repository?.name ?: java.io.File(path).name
                         )
                         refresh(path, generation)
                     }
@@ -94,13 +100,24 @@ class WorkspaceViewModel @Inject constructor(
     fun onRepositorySelected(repoPath: String) {
         val path = canonicalRepositoryPath(repoPath)
         if (state.value.repositoryPath == path) return
+        val previous = state.value
+        selectionJob?.cancel()
         // Invalidate in-flight loads immediately, not after the next DataStore emission.
         version++
+        val generation = version
         state.value = WorkspaceUiState(repositoryPath = path)
-        viewModelScope.launch {
-            safely {
+        selectionJob = viewModelScope.launch {
+            try {
                 repositoriesPreferences.resetSelectedBranch()
                 repositoriesPreferences.saveSelectedRepo(path)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                if (version == generation) {
+                    version++
+                    state.value = previous
+                }
+                events.send(UiEvent.Error("Cannot save selected repository"))
             }
         }
     }
@@ -113,24 +130,23 @@ class WorkspaceViewModel @Inject constructor(
             val nextGeneration = ++version
             state.value = state.value.copy(branchName = actualBranch, selectedUnstaged = emptySet(), selectedStaged = emptySet())
             repositoriesPreferences.saveSelectedBranch(actualBranch)
-            refresh(path, nextGeneration)
+            refreshAfterOperation(Result.success(Unit)) { refresh(path, nextGeneration) }
         }
     }
 
     fun onBranchCreated(branchName: String, sourceBranch: Branch, overwriteExisting: Boolean) {
         action { path, generation ->
             gitRepository.createBranch(path, branchName, sourceBranch, overwriteExisting).getOrThrow()
-            refresh(path, generation)
-            events.emit(UiEvent.Success("Branch $branchName created based on branch ${sourceBranch.name}"))
+            refreshAfterOperation(Result.success(Unit)) { refresh(path, generation) }
+            events.send(UiEvent.Success("Branch $branchName created based on branch ${sourceBranch.name}"))
         }
     }
 
     fun onBranchDeleted(branch: Branch, deleteRemote: Boolean, forceDelete: Boolean) {
         action { path, generation ->
             val result = gitRepository.deleteBranch(path, branch, credentialsPreferences.credentialsFlow.first(), deleteRemote, forceDelete)
-            refresh(path, generation)
-            result.getOrThrow()
-            events.emit(UiEvent.Success("Branch ${branch.name} deleted"))
+            refreshAfterOperation(result) { refresh(path, generation) }
+            events.send(UiEvent.Success("Branch ${branch.name} deleted"))
         }
     }
 
@@ -168,8 +184,7 @@ class WorkspaceViewModel @Inject constructor(
                 RemoteAction.PUSH -> gitRepository.push(path, credentials)
             }
             // A failed pull can still change the worktree or enter a conflicted state.
-            refresh(path, generation)
-            result.getOrThrow()
+            refreshAfterOperation(result) { refresh(path, generation) }
         } finally {
             busy(false)
         }
@@ -216,12 +231,12 @@ class WorkspaceViewModel @Inject constructor(
 
     private fun mutate(message: String, mutation: suspend (String) -> Result<Unit>) {
         action { path, generation ->
-            mutation(path).getOrThrow()
-            refreshStatus(path, generation)
+            val result = mutation(path)
+            refreshAfterOperation(result) { refreshStatus(path, generation) }
             if (current(path, generation)) {
                 state.value = state.value.copy(selectedUnstaged = emptySet(), selectedStaged = emptySet())
             }
-            events.emit(UiEvent.Success(message))
+            events.send(UiEvent.Success(message))
         }
     }
 
@@ -229,8 +244,8 @@ class WorkspaceViewModel @Inject constructor(
         if (message.isBlank() || stagedFiles.value.isEmpty()) return
         action { path, generation ->
             gitRepository.commit(path, gitConfigPreferences.gitConfigurationFlow.first(), message).getOrThrow()
-            refresh(path, generation)
-            events.emit(UiEvent.Success("Successfully commited"))
+            refreshAfterOperation(Result.success(Unit)) { refresh(path, generation) }
+            events.send(UiEvent.Success("Successfully commited"))
             if (current(path, generation)) onCommitSuccess()
         }
     }
@@ -255,7 +270,7 @@ class WorkspaceViewModel @Inject constructor(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            events.emit(UiEvent.Error("Error: ${e.localizedMessage ?: "Unknown error"}"))
+            events.send(UiEvent.Error("Error: ${e.localizedMessage ?: "Unknown error"}"))
         }
     }
 
@@ -266,14 +281,13 @@ class WorkspaceViewModel @Inject constructor(
         if (!current(path, generation)) return@withLock
         state.value = state.value.copy(isLoading = true)
         try {
-            val refs = gitRepository.getBranchesFullRefs(path).getOrThrow()
-            val commits = gitRepository.getCommits(path, branchName.value)
-            val tracking = gitRepository.getTrackingStatus(path, branchName.value).getOrThrow()
-            val status = gitRepository.getRepoStatus(path)
+            val snapshot = gitRepository.readWorkspace(path)
+            val status = snapshot.status
             if (current(path, generation)) {
                 state.value = state.value.copy(
-                    branches = transformRefsToBranches(refs), commits = commits,
-                    needPush = tracking.first > 0, needPull = tracking.second > 0, status = status,
+                    branchName = snapshot.branch,
+                    branches = snapshot.branches, commits = snapshot.commits,
+                    needPush = snapshot.ahead > 0, needPull = snapshot.behind > 0, status = status,
                     selectedUnstaged = state.value.selectedUnstaged.intersect(status.unstaged),
                     selectedStaged = state.value.selectedStaged.intersect(status.staged)
                 )
@@ -292,18 +306,18 @@ class WorkspaceViewModel @Inject constructor(
         )
     }
 
-    private fun transformRefsToBranches(refs: List<String>): List<Branch> {
-        val result = mutableMapOf<String, Branch>()
-        refs.filterNot { it.endsWith("/HEAD") }.forEach { ref ->
-            val local = ref.startsWith("refs/heads/")
-            val remote = ref.startsWith("refs/remotes/")
-            if (!local && !remote) return@forEach
-            val name = if (local) ref.removePrefix("refs/heads/")
-                else ref.removePrefix("refs/remotes/").substringAfter('/')
-            val previous = result[name]
-            result[name] = Branch(name, local || previous?.isLocal == true, remote || previous?.isRemote == true,
-                if (local) ref else previous?.localRef, if (remote) previous?.remoteRef ?: ref else previous?.remoteRef)
+    /** A refresh failure must never turn a completed Git mutation into a reported Git failure. */
+    private suspend fun refreshAfterOperation(result: Result<Unit>, refresh: suspend () -> Unit) {
+        try {
+            refresh()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            val original = result.exceptionOrNull()
+            if (original != null) original.addSuppressed(e)
+            else events.send(UiEvent.Error("Operation completed, but repository information could not be refreshed"))
         }
-        return result.values.sortedBy { it.name }
+        result.getOrThrow()
     }
+
 }

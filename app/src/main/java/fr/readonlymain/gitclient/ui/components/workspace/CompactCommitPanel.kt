@@ -28,12 +28,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import fr.readonlymain.gitclient.R
-import fr.readonlymain.gitclient.ui.viewmodel.WorkspaceViewModel
+import fr.readonlymain.gitclient.ui.viewmodel.WorkspaceUiState
 
 @Composable
 fun CompactCommitPanel(
     modifier: Modifier,
-    viewModel: WorkspaceViewModel,
+    state: WorkspaceUiState,
+    onCommit: (String, () -> Unit) -> Unit,
+    onToggleStaged: (String) -> Unit,
     commitMessageState: TextFieldState,
     onManageFiles: () -> Unit
 ) {
@@ -79,7 +81,7 @@ fun CompactCommitPanel(
                         containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
                     )
                 ) {
-                    val staged = viewModel.stagedFiles.value
+                    val staged = state.status.staged
 
                     if (staged.isEmpty()) {
                         Text("No changes staged", modifier = Modifier.padding(16.dp))
@@ -91,7 +93,7 @@ fun CompactCommitPanel(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .clickable {
-                                            viewModel.toggleStagedFileSelection(
+                                            onToggleStaged(
                                                 filePath
                                             )
                                         }
@@ -116,7 +118,7 @@ fun CompactCommitPanel(
             modifier = Modifier
                 .fillMaxWidth(),
             onClick = {
-                viewModel.onCommit(commitMessageState.text.toString()) {
+                onCommit(commitMessageState.text.toString()) {
                     commitMessageState.edit { delete(0, length) }
                 }
             }

@@ -10,6 +10,8 @@ class SerializedGitRepository @Inject constructor(
     private val delegate: DefaultGitRepository,
     private val coordinator: RepositoryOperationCoordinator
 ) : GitRepository {
+    override suspend fun readWorkspace(repoPath: String) = locked(repoPath) { delegate.readWorkspace(repoPath) }
+    override suspend fun getBranches(repoPath: String) = locked(repoPath) { delegate.getBranches(repoPath) }
     override suspend fun getCurrentBranch(repoPath: String) = locked(repoPath) { delegate.getCurrentBranch(repoPath) }
     override suspend fun cloneRepo(url: String, credentials: List<GitCredential>, localPath: String, onProgress: (String, Float) -> Unit) =
         locked(localPath) { delegate.cloneRepo(url, credentials, localPath, onProgress) }

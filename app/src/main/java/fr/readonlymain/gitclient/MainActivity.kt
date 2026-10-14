@@ -18,25 +18,23 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.window.core.layout.WindowSizeClass
 import dagger.hilt.android.AndroidEntryPoint
 import fr.readonlymain.gitclient.data.model.AppDestinations
-import fr.readonlymain.gitclient.data.preferences.DataStoreThemePreferences
 import fr.readonlymain.gitclient.ui.components.NavigationSuiteScaffoldCustom
 import fr.readonlymain.gitclient.ui.navigation.AppNavHost
 import fr.readonlymain.gitclient.ui.theme.GitClientTheme
 import fr.readonlymain.gitclient.ui.theme.ThemeMode
-import kotlinx.coroutines.launch
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import fr.readonlymain.gitclient.ui.viewmodel.SettingsViewModel
 
 /**
  * The main entry point of the GitClient application.
@@ -57,12 +55,9 @@ class MainActivity : ComponentActivity() {
 
             val navController = rememberNavController()
 
-            val context = LocalContext.current
-            val prefs = remember { DataStoreThemePreferences(context) }
-            val coroutineScope = rememberCoroutineScope()
-
-            val themeMode by prefs.getTheme()
-                .collectAsState(initial = ThemeMode.SYSTEM)
+            val settingsViewModel: SettingsViewModel = hiltViewModel()
+            val settings by settingsViewModel.uiState.collectAsStateWithLifecycle()
+            val themeMode = settings.theme
 
             val snackbarHostState = remember { SnackbarHostState() }
 
@@ -129,12 +124,11 @@ class MainActivity : ComponentActivity() {
                                 navController = navController,
                                 themeMode = themeMode,
                                 onThemeChange = { newTheme ->
-                                    coroutineScope.launch {
-                                        prefs.setTheme(newTheme)
-                                    }
+                                    settingsViewModel.setTheme(newTheme)
                                 },
                                 snackbarHostState = snackbarHostState,
-                                isCompact = isCompact
+                                isCompact = isCompact,
+                                settingsViewModel = settingsViewModel
                             )
                         }
                     }

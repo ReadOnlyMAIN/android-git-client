@@ -5,6 +5,7 @@ import com.google.common.truth.Truth.assertThat
 import fr.readonlymain.gitclient.data.model.Repository
 import fr.readonlymain.gitclient.data.model.UiEvent
 import fr.readonlymain.gitclient.data.preferences.FakeRepositoriesPreferences
+import fr.readonlymain.gitclient.data.preferences.FakeCredentialsPreferences
 import fr.readonlymain.gitclient.data.repository.FakeGitRepository
 import fr.readonlymain.gitclient.util.MainDispatcherRule
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -30,7 +31,8 @@ class RepositoriesViewModelTest {
 
         viewModel = RepositoriesViewModel(
             gitRepository = fakeRepository,
-            repositoriesPreferences = fakeRepoPrefs
+            repositoriesPreferences = fakeRepoPrefs,
+            credentialsPreferences = FakeCredentialsPreferences()
         )
     }
 
@@ -43,7 +45,7 @@ class RepositoriesViewModelTest {
 
         viewModel.uiEvent.test {
             // When
-            viewModel.startClone(url, emptyList(), localPath)
+            viewModel.startClone(url, localPath)
 
             // Then
             val event = awaitItem()
@@ -69,7 +71,7 @@ class RepositoriesViewModelTest {
 
         viewModel.uiEvent.test {
             // When
-            viewModel.startClone(url, emptyList(), localPath)
+            viewModel.startClone(url, localPath)
 
             // Then
             val event = awaitItem()

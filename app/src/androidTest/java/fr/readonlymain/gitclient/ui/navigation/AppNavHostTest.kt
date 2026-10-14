@@ -10,6 +10,8 @@ import fr.readonlymain.gitclient.data.model.Repository
 import fr.readonlymain.gitclient.data.preferences.FakeCredentialsPreferences
 import fr.readonlymain.gitclient.data.preferences.FakeGitConfigPreferences
 import fr.readonlymain.gitclient.data.preferences.FakeRepositoriesPreferences
+import fr.readonlymain.gitclient.data.preferences.FakeThemePreferences
+import fr.readonlymain.gitclient.ui.viewmodel.SettingsViewModel
 import fr.readonlymain.gitclient.data.repository.FakeGitRepository
 import fr.readonlymain.gitclient.ui.theme.ThemeMode
 import fr.readonlymain.gitclient.ui.viewmodel.RepositoriesViewModel
@@ -28,6 +30,7 @@ class AppNavHostTest {
     private lateinit var fakeCredentials: FakeCredentialsPreferences
     private lateinit var workspaceViewModel: WorkspaceViewModel
     private lateinit var repositoriesViewModel: RepositoriesViewModel
+    private lateinit var settingsViewModel: SettingsViewModel
 
     @Before
     fun setup() {
@@ -40,8 +43,9 @@ class AppNavHostTest {
             fakeRepo, fakePrefs, fakeCredentials, fakeConfig
         )
         repositoriesViewModel = RepositoriesViewModel(
-            fakeRepo, fakePrefs
+            fakeRepo, fakePrefs, fakeCredentials
         )
+        settingsViewModel = SettingsViewModel(fakeCredentials, fakeConfig, FakeThemePreferences())
     }
 
     @Test
@@ -49,7 +53,7 @@ class AppNavHostTest {
         // Setup some initial data
         val repoPath = "/fake/repo"
         kotlinx.coroutines.runBlocking {
-            fakePrefs.addRepository(Repository("Test Repo", "url", repoPath, "user"))
+            fakePrefs.addRepository(Repository(name = "Test Repo", remoteUrl = "url", localPath = repoPath, username = "user"))
             fakePrefs.saveSelectedRepo(repoPath)
         }
 
@@ -61,7 +65,8 @@ class AppNavHostTest {
                 onThemeChange = {},
                 snackbarHostState = snackbarHostState,
                 workspaceViewModel = workspaceViewModel,
-                repositoriesViewModel = repositoriesViewModel
+                repositoriesViewModel = repositoriesViewModel,
+                settingsViewModel = settingsViewModel
             )
         }
 
@@ -81,7 +86,8 @@ class AppNavHostTest {
                 onThemeChange = {},
                 snackbarHostState = snackbarHostState,
                 workspaceViewModel = workspaceViewModel,
-                repositoriesViewModel = repositoriesViewModel
+                repositoriesViewModel = repositoriesViewModel,
+                settingsViewModel = settingsViewModel
             )
         }
 
@@ -111,7 +117,8 @@ class AppNavHostTest {
                 onThemeChange = { },
                 snackbarHostState = snackbarHostState,
                 workspaceViewModel = workspaceViewModel,
-                repositoriesViewModel = repositoriesViewModel
+                repositoriesViewModel = repositoriesViewModel,
+                settingsViewModel = settingsViewModel
             )
         }
 
@@ -135,7 +142,8 @@ class AppNavHostTest {
                 onThemeChange = {},
                 snackbarHostState = snackbarHostState,
                 workspaceViewModel = workspaceViewModel,
-                repositoriesViewModel = repositoriesViewModel
+                repositoriesViewModel = repositoriesViewModel,
+                settingsViewModel = settingsViewModel
             )
         }
 
