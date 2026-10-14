@@ -98,17 +98,7 @@ class WorkspaceViewModel @Inject constructor(
             repositoriesPreferences.selectedRepoFlow.collect { selectedRepo ->
                 if (selectedRepo != null) {
                     selectRepo(selectedRepo)
-                    val selectedBranchName = repositoriesPreferences.selectedBranchFlow.first()
-                    if (selectedBranchName != null) {
-                        val branch = branches.value.find { it.name == selectedBranchName }
-                        if (branch != null) {
-                            onBranchSelected(branch)
-                        } else {
-                            refreshCommitList(selectedRepo)
-                        }
-                    } else {
-                        refreshCommitList(selectedRepo)
-                    }
+                    refreshCommitList(selectedRepo)
                 } else {
                     // Clear state when no repository is selected
                     repoName.value = ""
@@ -469,7 +459,12 @@ class WorkspaceViewModel @Inject constructor(
             canonicalRepositoryPath(it.localPath) == selectedRepositoryPath
         }
         repoName.value = repoInfo?.name ?: repoPath.substringAfterLast("/")
-        branchName.value = repoInfo?.defaultBranch ?: "main"
+        gitRepository.getCurrentBranch(repoPath).onSuccess {
+            branchName.value = it
+        }.onFailure {
+            branchName.value = ""
+            _uiEvent.emit(UiEvent.Error("Error: Can't read current branch (${it.localizedMessage})"))
+        }
 
         refreshBranches(repoPath)
     }

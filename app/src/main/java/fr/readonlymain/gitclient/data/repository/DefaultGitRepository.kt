@@ -39,6 +39,14 @@ import javax.inject.Singleton
  */
 @Singleton
 class DefaultGitRepository @Inject constructor() : GitRepository {
+    override suspend fun getCurrentBranch(repoPath: String): Result<String> =
+        withContext(Dispatchers.IO) {
+            try {
+                Git.open(File(repoPath)).use { Result.success(it.repository.branch) }
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
     //region Repo Management
     /**
      * Clones a Git repository to a local directory.

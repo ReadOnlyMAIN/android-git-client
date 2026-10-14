@@ -8,6 +8,8 @@ import fr.readonlymain.gitclient.data.model.GitCredential
 import fr.readonlymain.gitclient.data.model.Repository
 
 class FakeGitRepository : GitRepository {
+    var currentBranch = "main"
+    override suspend fun getCurrentBranch(repoPath: String): Result<String> = handleResult(currentBranch)
     var commitsToReturn = listOf<CommitInfo>()
     var branchesToReturn = listOf<String>()
     var statusToReturn = mapOf("unstaged" to emptySet<String>(), "staged" to emptySet<String>())

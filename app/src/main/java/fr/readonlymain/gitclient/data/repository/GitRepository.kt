@@ -11,6 +11,8 @@ import fr.readonlymain.gitclient.data.model.Repository
  * Interface defining the Git operations supported by the application.
  */
 interface GitRepository {
+    /** Actual symbolic branch, or the object ID when HEAD is detached. */
+    suspend fun getCurrentBranch(repoPath: String): Result<String>
 
     /**
      * Clones a Git repository to a local directory.
