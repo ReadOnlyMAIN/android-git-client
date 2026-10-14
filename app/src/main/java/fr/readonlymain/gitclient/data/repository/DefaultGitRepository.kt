@@ -307,35 +307,10 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
 
                 if (deleteRemote && branch.isRemote) {
                     val remote = branch.remoteRef?.removePrefix("refs/remotes/")?.substringBefore("/") ?: "origin"
-                    val attempts = credentialAttempts(remoteUrl(repoPath, remote, true), credentials)
-                    var lastException: Exception? = null
-                    var success = false
-
-                    for (cred in attempts) {
-                        coroutineContext.ensureActive()
-                        try {
-                            val pushCommand = git.push()
-                                .setRemote(branch.remoteRef?.removePrefix("refs/remotes/")?.substringBefore("/") ?: "origin")
-                                .setRefSpecs(RefSpec(":refs/heads/${branch.name}"))
-
-                            if (cred != null) {
-                                pushCommand.setCredentialsProvider(
-                                    scopedCredentials(cred)
-                                )
-                            }
-
-                            validatePushResults(pushCommand.call())
-                            success = true
-                            break
-                        } catch (e: Exception) {
-                            e.preserveCancellation()
-                            lastException = e
-                            if (classifyGitFailure(e).kind != GitFailureKind.AUTHENTICATION) break
-                        }
-                    }
-
-                    if (!success) {
-                        throw lastException ?: Exception("Failed to delete remote branch")
+                    withRemoteCredentials(remoteUrl(repoPath, remote, true), credentials) { provider, monitor ->
+                        validatePushResults(git.push().setRemote(remote)
+                            .setRefSpecs(RefSpec(":refs/heads/${branch.name}"))
+                            .setCredentialsProvider(provider).setProgressMonitor(monitor).call())
                     }
                 }
                 Result.success(Unit)
@@ -396,142 +371,44 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
         }
     }
     override suspend fun fetch(repoPath: String, credentials: List<GitCredential>): Result<Unit> =
-        withContext(Dispatchers.IO) {
-            val remote = remoteName(repoPath)
-            val attempts = credentialAttempts(remoteUrl(repoPath, remote), credentials)
-            var lastException: Exception? = null
-
-            for (cred in attempts) {
-                coroutineContext.ensureActive()
-                try {
-                    Git.open(File(repoPath)).use { git ->
-                        val fetchCommand = git.fetch().setRemote(remote)
-                        fetchCommand.setProgressMonitor(object : ProgressMonitor {
-                            override fun start(totalTasks: Int) {}
-                            override fun beginTask(title: String, totalWork: Int) {}
-                            override fun update(completed: Int) {}
-                            override fun endTask() {}
-                            override fun isCancelled(): Boolean = !coroutineContext.isActive
-                            override fun showDuration(enabled: Boolean) {}
-                        })
-                        if (cred != null) {
-                            fetchCommand.setCredentialsProvider(
-                                scopedCredentials(cred)
-                            )
-                        }
-                        fetchCommand.call()
-                        return@withContext Result.success(Unit)
-                    }
-                } catch (e: Exception) {
-                    e.preserveCancellation()
-                    lastException = e
-                    if (classifyGitFailure(e).kind != GitFailureKind.AUTHENTICATION) break
-                }
-            }
-            Result.failure(classifyGitFailure(lastException ?: Exception("Fetch failed")))
+        remoteOperation(repoPath, credentials) { git, remote, provider, monitor ->
+            git.fetch().setRemote(remote).setCredentialsProvider(provider).setProgressMonitor(monitor).call()
         }
 
     override suspend fun pull(repoPath: String, credentials: List<GitCredential>): Result<Unit> =
-        withContext(Dispatchers.IO) {
-            val remote = remoteName(repoPath)
-            val attempts = credentialAttempts(remoteUrl(repoPath, remote), credentials)
-            var lastException: Exception? = null
-
-            for (cred in attempts) {
-                coroutineContext.ensureActive()
-                try {
-                    Git.open(File(repoPath)).use { git ->
-                        val pullCommand = git.pull().setRemote(remote)
-                        pullCommand.setProgressMonitor(object : ProgressMonitor {
-                            override fun start(totalTasks: Int) {}
-                            override fun beginTask(title: String, totalWork: Int) {}
-                            override fun update(completed: Int) {}
-                            override fun endTask() {}
-                            override fun isCancelled(): Boolean = !coroutineContext.isActive
-                            override fun showDuration(enabled: Boolean) {}
-                        })
-
-                        if (cred != null) {
-                            pullCommand.setCredentialsProvider(
-                                scopedCredentials(cred)
-                            )
-                        }
-
-                        val result = pullCommand.call()
-
-                        if (result.isSuccessful) {
-                            return@withContext Result.success(Unit)
-                        } else {
-                            val mergeStatus = result.mergeResult?.mergeStatus ?: "Unknown"
-                            lastException = GitOperationException(
-                                if (result.mergeResult?.conflicts?.isNotEmpty() == true)
-                                    GitFailureKind.CONFLICT else GitFailureKind.REJECTED,
-                                "Pull failed: $mergeStatus")
-                            break
-                        }
-                    }
-                } catch (e: Exception) {
-                    e.preserveCancellation()
-                    lastException = e
-                    if (classifyGitFailure(e).kind != GitFailureKind.AUTHENTICATION) break
-                }
+        remoteOperation(repoPath, credentials) { git, remote, provider, monitor ->
+            val result = git.pull().setRemote(remote).setCredentialsProvider(provider).setProgressMonitor(monitor).call()
+            if (!result.isSuccessful) {
+                throw GitOperationException(
+                    if (result.mergeResult?.conflicts?.isNotEmpty() == true) GitFailureKind.CONFLICT else GitFailureKind.REJECTED,
+                    "Pull failed: ${result.mergeResult?.mergeStatus ?: result.rebaseResult?.status ?: "Unknown"}")
             }
-            Result.failure(classifyGitFailure(lastException ?: Exception("Pull failed")))
         }
 
     override suspend fun push(repoPath: String, credentials: List<GitCredential>): Result<Unit> =
-        withContext(Dispatchers.IO) {
-            val remote = remoteName(repoPath, true)
-            val attempts = credentialAttempts(remoteUrl(repoPath, remote, true), credentials)
-            var lastException: Exception? = null
+        remoteOperation(repoPath, credentials, push = true) { git, remote, provider, monitor ->
+            validatePushResults(git.push().setRemote(remote).setCredentialsProvider(provider).setProgressMonitor(monitor).call())
+        }
 
-            for (cred in attempts) {
-                coroutineContext.ensureActive()
-                try {
-                    Git.open(File(repoPath)).use { git ->
-                        val pushCommand = git.push().setRemote(remote)
-                        pushCommand.setProgressMonitor(object : ProgressMonitor {
-                            override fun start(totalTasks: Int) {}
-                            override fun beginTask(title: String, totalWork: Int) {}
-                            override fun update(completed: Int) {}
-                            override fun endTask() {}
-                            override fun isCancelled(): Boolean = !coroutineContext.isActive
-                            override fun showDuration(enabled: Boolean) {}
-                        })
-
-                        if (cred != null) {
-                            pushCommand.setCredentialsProvider(
-                                scopedCredentials(cred)
-                            )
-                        }
-
-                        val pushResults = pushCommand.call()
-
-                        pushResults.forEach { pushResult ->
-                            pushResult.remoteUpdates.forEach { update ->
-                                when (update.status) {
-                                    RemoteRefUpdate.Status.OK,
-                                    RemoteRefUpdate.Status.UP_TO_DATE -> {
-                                    }
-
-                                    else -> {
-                                        throw GitOperationException(GitFailureKind.REJECTED,
-                                            "Push failed for ${update.remoteName}: ${update.status}")
-                                    }
-                                }
-                            }
-                        }
-                        return@withContext Result.success(Unit)
-                    }
-
-                } catch (e: Exception) {
-                    e.preserveCancellation()
-                    lastException = e
-                    if (classifyGitFailure(e).kind != GitFailureKind.AUTHENTICATION) break
+    private suspend fun remoteOperation(
+        repoPath: String,
+        credentials: List<GitCredential>,
+        push: Boolean = false,
+        operation: (Git, String, org.eclipse.jgit.transport.CredentialsProvider?, ProgressMonitor) -> Unit
+    ): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val remote = remoteName(repoPath, push)
+            Git.open(File(repoPath)).use { git ->
+                withRemoteCredentials(remoteUrl(repoPath, remote, push), credentials) { provider, monitor ->
+                    operation(git, remote, provider, monitor)
                 }
             }
-            Result.failure(classifyGitFailure(lastException ?: Exception("Push failed")))
+            Result.success(Unit)
+        } catch (e: Exception) {
+            e.preserveCancellation()
+            Result.failure(classifyGitFailure(e))
         }
+    }
     //endregion
 
     //region Commit Management
