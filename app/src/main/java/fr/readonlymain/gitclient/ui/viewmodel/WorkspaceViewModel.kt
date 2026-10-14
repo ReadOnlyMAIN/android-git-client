@@ -12,6 +12,7 @@ import fr.readonlymain.gitclient.data.preferences.CredentialsPreferences
 import fr.readonlymain.gitclient.data.preferences.GitConfigPreferences
 import fr.readonlymain.gitclient.data.preferences.RepositoriesPreferences
 import fr.readonlymain.gitclient.data.repository.GitRepository
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -48,7 +49,7 @@ class WorkspaceViewModel @Inject constructor(
             //started = SharingStarted.Eagerly,
             initialValue = emptyList()
         )
-    
+
     var branches = mutableStateOf<List<Branch>>(emptyList())
         private set
 
@@ -75,6 +76,19 @@ class WorkspaceViewModel @Inject constructor(
 
     var isLoadingCommits = mutableStateOf(false)
         private set
+
+    var isPushing = mutableStateOf(false)
+        private set
+
+    var isPulling = mutableStateOf(false)
+        private set
+
+    var isSynchronizing = mutableStateOf(false)
+        private set
+
+    private var pushJob: Job? = null
+    private var pullJob: Job? = null
+    private var syncJob: Job? = null
     //endregion
 
     init {
@@ -112,16 +126,24 @@ class WorkspaceViewModel @Inject constructor(
 
     //region Repository & Branch Actions
     fun onRepositorySelected(repoPath: String) {
+        val repoInfo: Repository? = repositories.value.find { it.localPath == repoPath }
+        if (repoName.value == (repoInfo?.name ?: repoPath.substringAfterLast("/")))
+            return
+
         viewModelScope.launch {
             repositoriesPreferences.saveSelectedRepo(repoPath)
             repositoriesPreferences.resetSelectedBranch()
 
             selectRepo(repoPath)
             refreshCommitList(repoPath)
+            //_uiEvent.emit(UiEvent.Success("Successfully changed repository to ${repoName.value}"))
         }
     }
 
     fun onBranchSelected(newBranch: Branch) {
+        if (branchName.value == newBranch.name) {
+            return
+        }
         viewModelScope.launch {
             val selectedRepo = repositoriesPreferences.selectedRepoFlow.first()
             if (selectedRepo != null) {
@@ -132,12 +154,52 @@ class WorkspaceViewModel @Inject constructor(
 
                     refreshBranches(selectedRepo)
                     refreshCommitList(selectedRepo)
-                    _uiEvent.emit(UiEvent.Success("Successfully checkout on $actualBranch"))
+                    //_uiEvent.emit(UiEvent.Success("Successfully checkout on $actualBranch"))
                 }.onFailure { error ->
                     _uiEvent.emit(UiEvent.Error("Error: Can't checkout on $newBranch ($error)"))
                 }
+            }
+        }
+    }
 
+    fun onBranchCreated(branchName: String, sourceBranch: Branch, overwriteExisting: Boolean) {
+        viewModelScope.launch {
+            val selectedRepo = repositoriesPreferences.selectedRepoFlow.first()
+            if (selectedRepo != null) {
+                val result = gitRepository.createBranch(
+                    repoPath = selectedRepo,
+                    newBranchName = branchName,
+                    sourceBranch = sourceBranch,
+                    force = overwriteExisting
+                )
+                result.onSuccess {
+                    refreshBranches(selectedRepo)
+                    _uiEvent.emit(UiEvent.Success("Branch $branchName created based on branch ${sourceBranch.name}"))
+                }.onFailure { error ->
+                    _uiEvent.emit(UiEvent.Error("Error: Can't create branch $branchName (${error.localizedMessage})"))
+                }
+            }
+        }
+    }
 
+    fun onBranchDeleted(branch: Branch, deleteRemote: Boolean, forceDelete: Boolean) {
+        viewModelScope.launch {
+            val selectedRepo = repositoriesPreferences.selectedRepoFlow.first()
+            val credentials = credentialsPreferences.credentialsFlow.first()
+            if (selectedRepo != null) {
+                val result = gitRepository.deleteBranch(
+                    repoPath = selectedRepo,
+                    branch = branch,
+                    credentials = credentials,
+                    deleteRemote = deleteRemote,
+                    forceDelete = forceDelete
+                )
+                result.onSuccess {
+                    refreshBranches(selectedRepo)
+                    _uiEvent.emit(UiEvent.Success("Branch ${branch.name} deleted"))
+                }.onFailure { error ->
+                    _uiEvent.emit(UiEvent.Error("Error: Can't delete branch ${branch.name} (${error.localizedMessage})"))
+                }
             }
         }
     }
@@ -145,57 +207,87 @@ class WorkspaceViewModel @Inject constructor(
 
     //region Remote Operations
     fun onSynchronize() {
-        viewModelScope.launch {
+        if (isSynchronizing.value) {
+            syncJob?.cancel()
+            return
+        }
+
+        syncJob = viewModelScope.launch {
             val selectedRepo = repositoriesPreferences.selectedRepoFlow.first()
             val credentials = credentialsPreferences.credentialsFlow.first()
             if (selectedRepo != null) {
-                val result = gitRepository.fetch(selectedRepo, credentials)
-                if (result.isSuccess) {
-                    refreshCommitList(selectedRepo)
-                    refreshBranches(selectedRepo)
-                    _uiEvent.emit(UiEvent.Success("Successfully synchronized"))
-                } else {
-                    val error = result.exceptionOrNull()?.localizedMessage ?: "Unknown error"
-                    _uiEvent.emit(UiEvent.Error("Error: Can't synchronize ($error)"))
+                isSynchronizing.value = true
+                try {
+                    val result = gitRepository.fetch(selectedRepo, credentials)
+                    if (result.isSuccess) {
+                        refreshCommitList(selectedRepo)
+                        refreshBranches(selectedRepo)
+                        //_uiEvent.emit(UiEvent.Success("Successfully synchronized"))
+                    } else {
+                        val error = result.exceptionOrNull()?.localizedMessage ?: "Unknown error"
+                        _uiEvent.emit(UiEvent.Error("Error: Can't synchronize ($error)"))
+                    }
+                } finally {
+                    isSynchronizing.value = false
                 }
             }
         }
     }
 
     fun onPull() {
-        viewModelScope.launch {
+        if (isPulling.value) {
+            pullJob?.cancel()
+            return
+        }
+
+        pullJob = viewModelScope.launch {
             val selectedRepo = repositoriesPreferences.selectedRepoFlow.first()
             val credentials = credentialsPreferences.credentialsFlow.first()
 
             if (selectedRepo != null) {
-                // Can add isLoading state here
-                val result = gitRepository.pull(selectedRepo, credentials)
+                isPulling.value = true
+                try {
+                    val result = gitRepository.pull(selectedRepo, credentials)
 
-                if (result.isSuccess) {
-                    refreshCommitList(selectedRepo)
-                    refreshBranches(selectedRepo)
-                    _uiEvent.emit(UiEvent.Success("Successfully pulled current branch"))
-                } else {
-                    val error = result.exceptionOrNull()?.localizedMessage ?: "Unknown error"
-                    _uiEvent.emit(UiEvent.Error("Error: Can't pull ($error)"))
+                    if (result.isSuccess) {
+                        refreshCommitList(selectedRepo)
+                        refreshBranches(selectedRepo)
+                        //_uiEvent.emit(UiEvent.Success("Successfully pulled refs"))
+                    } else {
+                        val error = result.exceptionOrNull()?.localizedMessage ?: "Unknown error"
+                        _uiEvent.emit(UiEvent.Error("Error: Can't pull ($error)"))
+                    }
+                } finally {
+                    isPulling.value = false
                 }
             }
         }
     }
 
     fun onPush() {
-        viewModelScope.launch {
+        if (isPushing.value) {
+            pushJob?.cancel()
+            return
+        }
+
+        pushJob = viewModelScope.launch {
             val selectedRepo = repositoriesPreferences.selectedRepoFlow.first()
             val credentials = credentialsPreferences.credentialsFlow.first()
 
             if (selectedRepo != null) {
-                val result = gitRepository.push(selectedRepo, credentials)
-                if (result.isSuccess) {
-                    refreshCommitList(selectedRepo)
-                    _uiEvent.emit(UiEvent.Success("Successfully pushed refs"))
-                } else {
-                    val error = result.exceptionOrNull()?.localizedMessage ?: "Unknown error"
-                    _uiEvent.emit(UiEvent.Error("Error: Can't push some ref ($error)"))
+                isPushing.value = true
+                try {
+                    val result = gitRepository.push(selectedRepo, credentials)
+                    if (result.isSuccess) {
+                        refreshCommitList(selectedRepo)
+                        refreshBranches(selectedRepo)
+                        //_uiEvent.emit(UiEvent.Success("Successfully pushed refs"))
+                    } else {
+                        val error = result.exceptionOrNull()?.localizedMessage ?: "Unknown error"
+                        _uiEvent.emit(UiEvent.Error("Error: Can't push some ref ($error)"))
+                    }
+                } finally {
+                    isPushing.value = false
                 }
             }
         }
@@ -370,7 +462,7 @@ class WorkspaceViewModel @Inject constructor(
 
     //region Internal Helpers
     private suspend fun selectRepo(repoPath: String) {
-        val repoInfo = repositories.value.find { it.localPath == repoPath }
+        val repoInfo: Repository? = repositories.value.find { it.localPath == repoPath }
         repoName.value = repoInfo?.name ?: repoPath.substringAfterLast("/")
         branchName.value = repoInfo?.defaultBranch ?: "main"
 

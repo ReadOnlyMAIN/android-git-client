@@ -7,26 +7,32 @@
 ![Status](https://img.shields.io/badge/status-Pre--release-orange)
 ![Version](https://img.shields.io/badge/version-0.1-blue)
 
+**Next version:** v0.2 — in development. See [ROADMAP.md](ROADMAP.md).
+
 
 AGit Client is an open-source Android application designed to provide a clean, fast, and native Git experience directly on mobile devices.
 
 The project focuses on simplicity, responsiveness, and modern Android UI/UX while progressively integrating more advanced Git features.
 
 ⚠️ **Current UI status:**
-AGit Client is currently optimized for **tablets and large screens only**.
-Smartphone support and responsive layouts are one of the main priorities for upcoming versions.
+The v0.1 interface primarily targets **tablets and large screens**.
+Responsive smartphone layouts are already being developed for v0.2, but still require validation and refinement.
 
 # 📱 Tech Stack
 
 * **Language:** Kotlin
 * **IDE:** Android Studio
-* **UI:** Material Design 3
-* **Platform:** Android
-* **Architecture Goal:** Modern native Android application with responsive UI support
+* **UI:** Jetpack Compose and Material Design 3
+* **Platform:** Android 14+ (API 34+)
+* **Git engine:** JGit
+* **Architecture:** ViewModels, coroutines, Flow, and Hilt dependency injection
+* **Storage:** Preferences DataStore; Git credentials encrypted with Android Keystore
 
 # 🧪 Project Status
 
 AGit Client is currently in **pre-release** stage (`v0.1`).
+
+Development is focused on **v0.2**. Its first priority is to correct, optimize, and stabilize the existing application logic, without adding, removing, or modifying UI. Functional additions and UX/UI improvements belong to a second phase, after the internal reliability work has been validated.
 
 The application is under active development and some features may be incomplete, unstable, or subject to major changes.
 
@@ -52,7 +58,7 @@ I develop projects using the Godot Engine on Android devices and needed a Git cl
 Most existing mobile Git clients either felt outdated, overloaded, or not optimized for the workflow I wanted.
 AGit Client aims to provide a lightweight, reactive, and efficient Git experience designed specifically for Android devices.
 
-The project is still in early development (`v0.1`) and evolves progressively as my own needs grow.
+The project is still in early development, with v0.2 in progress, and evolves progressively as my own needs grow.
 
 # 🐛 Issues & Suggestions
 
@@ -70,40 +76,30 @@ If you'd like to contribute:
 4. Open a Pull Request
 
 Please keep the codebase clean and consistent with the existing architecture and Material Design 3 guidelines.
+Follow the phase ordering in [ROADMAP.md](ROADMAP.md): internal reliability work comes before new functionality or UX/UI changes.
 
 # ✨ Features
 
 ## Current Features (v0.1)
 
-* HTTP git connection *(no SSH yet)*
+* HTTP(S) Git connections *(no SSH yet)*
 * Repository cloning/import
 * Repository list management
-* Editable Git credentials
+* Git credential storage and management *(in-place credential editing is not yet implemented)*
 * Fetch, Pull, Commit and Push
+
+## Already present in the v0.2 development code
+
+* Responsive workspace and selection dialogs for compact screens
+* Local branch creation, checkout, and deletion, with an optional remote deletion action
+* Cancellation controls for fetch, pull, and push
+* Automatic creation of a repository subfolder when cloning
+
+These implementations still require reliability and device testing; their presence does not imply release readiness.
 
 ## 🚧 Roadmap
 
-| Feature | Type | Status | Version |
-|---|---|---|---|
-| Responsive smartphone layout support | Feature | 🚧 In Progress | v0.2 |
-| Prevent duplicate local repository imports | Bug Fix | 📅 Planned | v0.2 |
-| Warning when cloning duplicate repositories | Bug Fix | 📅 Planned | v0.2 |
-| Local branches creation | Feature | 📅 Planned | v0.2 |
-| Commit details panel | Feature | 📅 Planned | v0.2 |
-| ├─ Reset here action | Feature | 📅 Planned | v0.2 |
-| └─ Additional commit actions | Feature | 📅 Planned | v0.2 |
-| File change details view | Feature | 📅 Planned | v0.2 |
-| SSH Git connection support | Feature | 📅 Planned | v0.2 |
-| Commit description input | Feature | 📅 Planned | v0.2 |
-| Save default clone directory | QoL | 📅 Planned | v0.2 |
-| Automatically create repository folder when cloning | QoL | 📅 Planned | v0.2 |
-| File status indicators | QoL | 📅 Planned | v0.2 |
-| ├─ Added status | QoL | 📅 Planned | v0.2 |
-| ├─ Modified status | QoL | 📅 Planned | v0.2 |
-| └─ Deleted status | QoL | 📅 Planned | v0.2 |
-| Automatic fetch/synchronization | QoL | 📅 Planned | v0.2 |
-| ├─ Periodic background refresh | QoL | 📅 Planned | v0.2 |
-| └─ Refresh on app reopen | QoL | 📅 Planned | v0.2 |
+See [ROADMAP.md](ROADMAP.md) for version-specific goals, implementation status, and the separation between internal logic work and subsequent functional / UX/UI improvements.
 
 # 📦 Installation
 

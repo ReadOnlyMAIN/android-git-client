@@ -38,6 +38,27 @@ interface GitRepository {
     suspend fun checkoutBranch(repoPath: String, branch: Branch): Result<String>
 
     /**
+     * Creates a new branch.
+     */
+    suspend fun createBranch(
+        repoPath: String,
+        newBranchName: String,
+        sourceBranch: Branch,
+        force: Boolean = false
+    ): Result<Unit>
+
+    /**
+     * Deletes the specified branch.
+     */
+    suspend fun deleteBranch(
+        repoPath: String,
+        branch: Branch,
+        credentials: List<GitCredential>,
+        deleteRemote: Boolean = false,
+        forceDelete: Boolean = false
+    ): Result<Unit>
+
+    /**
      * Gets the number of commits ahead and behind the remote tracking branch.
      */
     suspend fun getTrackingStatus(repoPath: String, branchName: String): Result<Pair<Int, Int>>

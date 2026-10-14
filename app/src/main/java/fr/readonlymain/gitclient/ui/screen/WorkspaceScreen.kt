@@ -84,17 +84,28 @@ fun WorkspaceScreen(
                     modifier = Modifier,
                     isCompact = false,
                     repositories = viewModel.repositories.collectAsState().value,
+                    selectedRepository = viewModel.repoName.value,
                     branches = viewModel.branches.value,
+                    selectedBranch = viewModel.branchName.value,
                     onRepositorySelected = { path ->
                         viewModel.onRepositorySelected(path)
                     },
                     onBranchSelected = { branch ->
                         viewModel.onBranchSelected(branch)
                     },
+                    onBranchCreated = { branchName, sourceBranch, overwriteExisting ->
+                        viewModel.onBranchCreated(branchName, sourceBranch, overwriteExisting)
+                    },
+                    onBranchDeleted = { branch, deleteRemote, forceDelete ->
+                        viewModel.onBranchDeleted(branch, deleteRemote, forceDelete)
+                    },
+                    isSynchronizing = viewModel.isSynchronizing.value,
                     onSynchronize = { viewModel.onSynchronize() },
                     needPull = viewModel.needPull.value,
+                    isPulling = viewModel.isPulling.value,
                     onPull = { viewModel.onPull() },
                     needPush = viewModel.needPush.value,
+                    isPushing = viewModel.isPushing.value,
                     onPush = { viewModel.onPush() }
                 )
 
@@ -124,17 +135,28 @@ fun WorkspaceScreen(
                     .align(Alignment.BottomCenter),
                 isCompact = true,
                 repositories = viewModel.repositories.collectAsState().value,
+                selectedRepository = viewModel.repoName.value,
                 branches = viewModel.branches.value,
+                selectedBranch = viewModel.branchName.value,
                 onRepositorySelected = { path ->
                     viewModel.onRepositorySelected(path)
                 },
                 onBranchSelected = { branch ->
                     viewModel.onBranchSelected(branch)
                 },
+                onBranchCreated = { branchName, sourceBranch, overwriteExisting ->
+                    viewModel.onBranchCreated(branchName, sourceBranch, overwriteExisting)
+                },
+                onBranchDeleted = { branch, deleteRemote, forceDelete ->
+                    viewModel.onBranchDeleted(branch, deleteRemote, forceDelete)
+                },
+                isSynchronizing = viewModel.isSynchronizing.value,
                 onSynchronize = { viewModel.onSynchronize() },
                 needPull = viewModel.needPull.value,
+                isPulling = viewModel.isPulling.value,
                 onPull = { viewModel.onPull() },
                 needPush = viewModel.needPush.value,
+                isPushing = viewModel.isPushing.value,
                 onPush = { viewModel.onPush() }
             )
         }

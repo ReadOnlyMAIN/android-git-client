@@ -48,6 +48,27 @@ class FakeGitRepository : GitRepository {
         return handleResult(branch.name)
     }
 
+    override suspend fun createBranch(
+        repoPath: String,
+        newBranchName: String,
+        sourceBranch: Branch,
+        force: Boolean
+    ): Result<Unit> {
+        lastActionCalled = "createBranch"
+        return handleResult(Unit)
+    }
+
+    override suspend fun deleteBranch(
+        repoPath: String,
+        branch: Branch,
+        credentials: List<GitCredential>,
+        deleteRemote: Boolean,
+        forceDelete: Boolean
+    ): Result<Unit> {
+        lastActionCalled = "deleteBranch"
+        return handleResult(Unit)
+    }
+
     override suspend fun getTrackingStatus(
         repoPath: String,
         branchName: String
