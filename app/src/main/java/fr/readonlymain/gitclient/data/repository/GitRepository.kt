@@ -6,6 +6,7 @@ import fr.readonlymain.gitclient.data.model.CommitInfo
 import fr.readonlymain.gitclient.data.model.GitConfig
 import fr.readonlymain.gitclient.data.model.GitCredential
 import fr.readonlymain.gitclient.data.model.Repository
+import fr.readonlymain.gitclient.data.model.RepositoryStatus
 
 /**
  * Interface defining the Git operations supported by the application.
@@ -88,7 +89,7 @@ interface GitRepository {
     /**
      * Gets the status of the working directory (staged vs unstaged files).
      */
-    suspend fun getRepoStatus(repoPath: String): Map<String, Set<String>>
+    suspend fun getRepoStatus(repoPath: String): RepositoryStatus
 
     /**
      * Performs a hard reset and cleans the working directory.

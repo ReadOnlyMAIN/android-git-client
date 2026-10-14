@@ -65,7 +65,7 @@ Correcting the data and behavior behind the existing interface is in scope. New 
 | Consolidate repeated authentication, progress-monitor, and error-handling logic | 🟢 Implemented — validation pending |
 | Optimize history traversal and commit tracking calculations without changing the interface | 🟢 Implemented — validation pending |
 | Close JGit resources consistently and avoid unnecessary full-history reloads | 🟢 Implemented — validation pending |
-| Introduce typed repository status and coherent read-only workspace state while preserving the UI | 🔴 Planned |
+| Introduce typed repository status and coherent read-only workspace state while preserving the UI | 🟢 Implemented — validation pending |
 | Align dependency versions and review release shrinking rules without changing UI behavior | 🔴 Planned |
 
 #### Validation before Phase 2

@@ -510,7 +510,7 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
     //endregion
 
     //region Status & Working Directory
-    override suspend fun getRepoStatus(repoPath: String): Map<String, Set<String>> =
+    override suspend fun getRepoStatus(repoPath: String): RepositoryStatus =
         withContext(Dispatchers.IO) {
             Git.open(File(repoPath)).use { git ->
                 val status = git.status().call()
@@ -518,7 +518,7 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
                     unstaged = status.modified + status.untracked + status.missing,
                     staged = status.added + status.changed + status.removed,
                     conflicts = status.conflicting
-                ).asLegacyMap()
+                )
             }
         }
 

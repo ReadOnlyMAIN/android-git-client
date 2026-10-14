@@ -6,6 +6,7 @@ import fr.readonlymain.gitclient.data.model.CommitInfo
 import fr.readonlymain.gitclient.data.model.GitConfig
 import fr.readonlymain.gitclient.data.model.GitCredential
 import fr.readonlymain.gitclient.data.model.Repository
+import fr.readonlymain.gitclient.data.model.RepositoryStatus
 
 class FakeGitRepository : GitRepository {
     var currentBranch = "main"
@@ -99,9 +100,9 @@ class FakeGitRepository : GitRepository {
         return commitsToReturn
     }
 
-    override suspend fun getRepoStatus(repoPath: String): Map<String, Set<String>> {
+    override suspend fun getRepoStatus(repoPath: String): RepositoryStatus {
         lastActionCalled = "getRepoStatus"
-        return statusToReturn
+        return RepositoryStatus.fromMap(statusToReturn)
     }
 
     override suspend fun resetRepository(repoPath: String): Result<Unit> {

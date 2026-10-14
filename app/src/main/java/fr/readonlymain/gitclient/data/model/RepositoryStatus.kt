@@ -6,7 +6,9 @@ data class RepositoryStatus(
     val staged: Set<String> = emptySet(),
     val conflicts: Set<String> = emptySet()
 ) {
-    fun asLegacyMap(): Map<String, Set<String>> = mapOf(
-        "unstaged" to unstaged, "staged" to staged, "conflicts" to conflicts
-    )
+    companion object {
+        fun fromMap(status: Map<String, Set<String>>) = RepositoryStatus(
+            status["unstaged"].orEmpty(), status["staged"].orEmpty(), status["conflicts"].orEmpty()
+        )
+    }
 }
