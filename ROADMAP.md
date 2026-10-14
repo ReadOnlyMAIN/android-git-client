@@ -54,7 +54,7 @@ Correcting the data and behavior behind the existing interface is in scope. New 
 | Propagate encryption and decryption failures instead of silently treating them as empty credentials | 🟢 Implemented — validation pending |
 | Keep credential updates atomic and avoid overwriting data after a failed read or encryption | 🟢 Implemented — validation pending |
 | Define backup and restore rules for Keystore-encrypted credentials | 🟢 Implemented — validation pending |
-| Validate supported local storage paths and report unsupported providers through existing error handling | 🟡 In progress — backend validation implemented; document-picker rejection feedback deferred to Phase 2 to avoid UI changes |
+| Validate supported local storage paths and report unsupported providers through existing error handling | 🟢 Implemented — backend validation and feedback through existing snackbar handling |
 
 #### Performance and maintainability
 
@@ -76,13 +76,13 @@ Correcting the data and behavior behind the existing interface is in scope. New 
 | Add integration tests using temporary Git repositories and local remotes | 🟢 Implemented — local tests passed |
 | Cover staging, deleted files, conflicts, branch operations, rejected pushes, and destructive operations | 🟢 Implemented — local tests passed |
 | Cover duplicate imports, repository switching, concurrent operations, cancellation, and persistence failures | 🟢 Implemented — local tests passed |
-| Add CI checks for unit tests, Android lint, and debug / release compilation | 🟢 Implemented — first hosted run pending |
+| Add CI checks for unit tests, Android lint, and debug / release compilation | 🟢 Implemented — hosted logic-cleanup run passed |
 
 **Phase 1 completion criteria:** regression tests cover the corrected logic; supported existing Git workflows pass; cancellation and failure paths leave consistent state; no UI additions, removals, or modifications are included. Device validation must also check that existing layouts and interactions remain unchanged.
 
 #### Local validation and remaining release gates
 
-The logic cleanup includes 58 local JVM tests, including JGit integration tests against temporary local remotes. No personal repository or external Git account is used by these tests.
+The initial logic cleanup introduced a 58-test JVM suite. The Android/architecture follow-up extends it with settings, real loopback HTTPS and multi-remote regression tests. No personal repository or external Git account is used by these tests.
 
 ```bash
 ./gradlew testDebugUnitTest lintDebug assembleDebug assembleRelease compileDebugAndroidTestKotlin
@@ -90,9 +90,29 @@ The logic cleanup includes 58 local JVM tests, including JGit integration tests 
 
 The local checks cover unit / integration tests, Android lint, debug and release builds (including R8), and compilation of instrumented tests. Lint warnings remain; a successful build is not a claim that lint is warning-free.
 
-**Still pending:** the first hosted CI run, execution on Android devices / emulators, real HTTPS authentication and cancellation, Android Keystore failure / restore scenarios, and confirmation that the unchanged UI behaves correctly on compact and large screens. Phase 1 is not declared release-ready until those checks are complete.
+The original hosted logic-cleanup CI passed. The follow-up adds real loopback HTTPS tests, Android Keystore/DataStore instrumentation, Compose workflows, activity recreation, and emulator CI jobs. See [Testing and release validation](docs/TESTING.md) for the distinction between implemented tests and remaining release sign-off.
 
-Credentials are now restricted by their stored `providerUrl` (default: GitHub), and cross-origin HTTP redirects are rejected. Broader credential-association controls remain a Phase 2 UI task. Unsupported document-picker providers currently return no filesystem path; explicit visual rejection feedback also remains deferred to Phase 2.
+Credentials are restricted by their stored `providerUrl` (default: GitHub), and cross-origin HTTP redirects are rejected. Broader credential-association controls remain a Phase 2 UI task. Unsupported document-picker providers are now reported through the existing error snackbar.
+
+#### Android validation and architecture consolidation
+
+This follow-up changes presentation wiring and testability, not the visual design or the planned Git feature set.
+
+| Goal | Status |
+|---|---|
+| Move settings persistence and credential reads out of composables | 🟢 Implemented — safe ViewModel-owned state and writes |
+| Keep workspace components state/callback based and observe flows with lifecycle awareness | 🟢 Implemented |
+| Preserve Git operation results independently of refresh failures and read atomic workspace snapshots | 🟢 Implemented — regression tests |
+| Preserve full branch identity across multiple remotes | 🟢 Implemented — regression tests |
+| Add real loopback HTTPS authentication, redirect and cancellation tests | 🟢 Implemented — local tests passed |
+| Test actual Android Keystore, persistence, UI workflows and activity recreation | 🟢 Implemented — 21 instrumented tests passed locally on API 36 |
+| Execute Android tests in CI on API 34 and 36 | 🟢 Implemented — both hosted emulator jobs passed |
+
+Physical-device testing, real hosting-provider checks, recovery UX, and a signed release smoke test remain release gates. This section does not declare the application production-ready solely because builds or tests pass.
+
+Local follow-up validation: 76 JVM tests passed, lint completed without errors, debug/release APKs built, and the 21-test Android suite passed on an isolated API 36 emulator. The 200-commit history diagnostic recorded 648 ms for the first read and 313 ms for the repeated read on that emulator; this is not a large-repository performance guarantee.
+
+Hosted follow-up validation: [Android checks run #5](https://github.com/ReadOnlyMAIN/android-git-client/actions/runs/38569001536) passed all three jobs (`verify`, API 34, API 36) for commit `dbf718f`, including the Gradle 9.6.0 wrapper update. Local Gradle 9.6.0 checks also passed.
 
 ### Phase 2 — Functional additions and UX/UI improvements
 

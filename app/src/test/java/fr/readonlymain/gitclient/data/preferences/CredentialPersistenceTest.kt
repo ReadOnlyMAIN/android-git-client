@@ -3,21 +3,34 @@ package fr.readonlymain.gitclient.data.preferences
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.emptyPreferences
+import androidx.datastore.core.DataStore
 import com.google.common.truth.Truth.assertThat
 import fr.readonlymain.gitclient.data.model.GitCredential
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.test.runTest
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
+import okio.Path.Companion.toPath
 
 class CredentialPersistenceTest {
     @get:Rule val temporary = TemporaryFolder()
 
     @Test fun `concurrent additions do not lose updates`() = runTest {
-        val store = PreferenceDataStoreFactory.create(scope = backgroundScope) {
-            temporary.root.resolve("settings.preferences_pb")
+        // Verify transaction boundaries without Windows File.renameTo limitations.
+        // Real encrypted DataStore concurrent writes are covered by Android instrumentation.
+        val store = object : DataStore<Preferences> {
+            override val data = MutableStateFlow(emptyPreferences())
+            private val writes = Mutex()
+            override suspend fun updateData(transform: suspend (Preferences) -> Preferences): Preferences = writes.withLock {
+                transform(data.value).also { data.value = it }
+            }
         }
         val persistence = CredentialPersistence(store, { "encrypted:$it" }, { it.removePrefix("encrypted:") })
         val jobs = (1..30).map { index -> launch {
@@ -29,8 +42,8 @@ class CredentialPersistenceTest {
     }
 
     @Test fun `failed encryption leaves original payload untouched`() = runTest {
-        val store = PreferenceDataStoreFactory.create(scope = backgroundScope) {
-            temporary.root.resolve("settings.preferences_pb")
+        val store = PreferenceDataStoreFactory.createWithPath(scope = backgroundScope) {
+            temporary.root.resolve("settings.preferences_pb").absolutePath.toPath()
         }
         var fail = false
         val persistence = CredentialPersistence(store, {
@@ -46,8 +59,8 @@ class CredentialPersistenceTest {
     }
 
     @Test fun `failed decryption does not replace unreadable credentials`() = runTest {
-        val store = PreferenceDataStoreFactory.create(scope = backgroundScope) {
-            temporary.root.resolve("settings.preferences_pb")
+        val store = PreferenceDataStoreFactory.createWithPath(scope = backgroundScope) {
+            temporary.root.resolve("settings.preferences_pb").absolutePath.toPath()
         }
         val key = stringPreferencesKey("git_credentials_encrypted")
         store.edit { it[key] = "unreadable-ciphertext" }
@@ -62,8 +75,8 @@ class CredentialPersistenceTest {
     }
 
     @Test fun `malformed credential JSON is not an empty collection`() = runTest {
-        val store = PreferenceDataStoreFactory.create(scope = backgroundScope) {
-            temporary.root.resolve("settings.preferences_pb")
+        val store = PreferenceDataStoreFactory.createWithPath(scope = backgroundScope) {
+            temporary.root.resolve("settings.preferences_pb").absolutePath.toPath()
         }
         store.edit { it[stringPreferencesKey("git_credentials_encrypted")] = "invalid JSON" }
         val persistence = CredentialPersistence(store, { it }, { it })

@@ -9,16 +9,21 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
 import fr.readonlymain.gitclient.data.model.UiEvent
-import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.Flow
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
 
 @Composable
 fun ObserveUiEvents(
-    flow: SharedFlow<UiEvent>,
+    flow: Flow<UiEvent>,
     snackbarHostState: SnackbarHostState
 ) {
     val clipboard = LocalClipboard.current
+    val lifecycleOwner = LocalLifecycleOwner.current
 
-    LaunchedEffect(flow) {
+    LaunchedEffect(flow, lifecycleOwner) {
+        lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
         flow.collect { event ->
             val result = when (event) {
                 is UiEvent.Error -> {
@@ -43,6 +48,7 @@ fun ObserveUiEvents(
                     ClipEntry(ClipData.newPlainText("error_log", event.message))
                 )
             }
+        }
         }
     }
 }

@@ -19,49 +19,40 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import fr.readonlymain.gitclient.R
-import fr.readonlymain.gitclient.data.model.GitConfig
-import fr.readonlymain.gitclient.data.model.GitCredential
-import fr.readonlymain.gitclient.data.preferences.DataStoreCredentialsPreferences
-import fr.readonlymain.gitclient.data.preferences.DataStoreGitConfigPreferences
 import fr.readonlymain.gitclient.ui.components.settings.CredentialListItem
 import fr.readonlymain.gitclient.ui.components.settings.GitConfigDialog
 import fr.readonlymain.gitclient.ui.components.settings.GitCredentialDialog
 import fr.readonlymain.gitclient.ui.theme.ThemeMode
-import kotlinx.coroutines.launch
+import fr.readonlymain.gitclient.ui.viewmodel.SettingsUiState
 
 @Composable
 fun SettingsScreen(
     themeMode: ThemeMode,
     onThemeChange: (ThemeMode) -> Unit,
+    state: SettingsUiState,
+    onAddCredential: (String, String, String, () -> Unit) -> Unit,
+    onDeleteCredential: (String) -> Unit,
+    onSaveGitConfig: (String, String, () -> Unit) -> Unit
 ) {
     val scrollState = rememberScrollState()
-    val scope = rememberCoroutineScope()
-    val context = LocalContext.current
-
-    val credentialsPreferences = remember { DataStoreCredentialsPreferences(context) }
-
-    val credentials by credentialsPreferences.credentialsFlow.collectAsState(initial = emptyList())
-
-    val gitConfigPreferences = remember { DataStoreGitConfigPreferences(context) }
-    val gitConfig by gitConfigPreferences.gitConfigurationFlow.collectAsState(initial = GitConfig())
+    val credentials = state.credentials
+    val gitConfig = state.gitConfig
 
     val cardsContainerColor = MaterialTheme.colorScheme.surfaceBright
 
-    var showAddDialog by remember { mutableStateOf(false) }
-    var showGitConfigDialog by remember { mutableStateOf(false) }
+    var showAddDialog by rememberSaveable { mutableStateOf(false) }
+    var showGitConfigDialog by rememberSaveable { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -188,9 +179,7 @@ fun SettingsScreen(
                         accountName = credential.accountName,
                         onEdit = { /* TODO: implement editing */ },
                         onDelete = {
-                            scope.launch {
-                                credentialsPreferences.deleteCredential(credential.id)
-                            }
+                            onDeleteCredential(credential.id)
                         }
                     )
                     HorizontalDivider(
@@ -230,16 +219,7 @@ fun SettingsScreen(
         GitCredentialDialog(
             onDismiss = { showAddDialog = false },
             onConfirm = { name, user, tok ->
-                scope.launch {
-                    credentialsPreferences.addCredential(
-                        GitCredential(
-                            accountName = name,
-                            username = user,
-                            token = tok
-                        )
-                    )
-                    showAddDialog = false
-                }
+                onAddCredential(name, user, tok) { showAddDialog = false }
             }
         )
     }
@@ -249,15 +229,7 @@ fun SettingsScreen(
             previousConfig = gitConfig,
             onDismiss = { showGitConfigDialog = false },
             onConfirm = { name, email ->
-                scope.launch {
-                    gitConfigPreferences.setGitConfig(
-                        GitConfig(
-                            name = name,
-                            email = email,
-                        )
-                    )
-                    showGitConfigDialog = false
-                }
+                onSaveGitConfig(name, email) { showGitConfigDialog = false }
             }
         )
     }

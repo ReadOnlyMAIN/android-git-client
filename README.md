@@ -76,6 +76,7 @@ If you'd like to contribute:
 4. Open a Pull Request
 
 Please keep the codebase clean and consistent with the existing architecture and Material Design 3 guidelines.
+See [Architecture](docs/ARCHITECTURE.md) and [Testing and release validation](docs/TESTING.md) for implementation boundaries and verification commands.
 Follow the phase ordering in [ROADMAP.md](ROADMAP.md): internal reliability work comes before new functionality or UX/UI changes.
 
 # ✨ Features

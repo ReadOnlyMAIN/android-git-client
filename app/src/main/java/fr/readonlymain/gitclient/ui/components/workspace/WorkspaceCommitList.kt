@@ -18,11 +18,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import fr.readonlymain.gitclient.ui.viewmodel.WorkspaceViewModel
+import fr.readonlymain.gitclient.ui.viewmodel.WorkspaceUiState
 
 @Composable
 fun WorkspaceCommitLists(
-    viewModel: WorkspaceViewModel,
+    state: WorkspaceUiState,
+    onCommit: (String, () -> Unit) -> Unit,
     modifier: Modifier,
     commitMessageState: TextFieldState,
     isCompact: Boolean,
@@ -40,8 +41,8 @@ fun WorkspaceCommitLists(
                 .padding(top = 16.dp, bottom = 0.dp, start = 16.dp, end = 16.dp),
             verticalArrangement = spacedBy(2.dp)
         ) {
-            val repoName = viewModel.repoName.value
-            val branchName = viewModel.branchName.value
+            val repoName = state.repositoryName
+            val branchName = state.branchName
 
             if (repoName.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize()) {
@@ -62,14 +63,14 @@ fun WorkspaceCommitLists(
             )
 
             CommitAction(
-                viewModel,
+                onCommit,
                 commitMessageState,
                 isCompact = isCompact,
                 onManageFiles = onManageFiles,
                 onNewCommit = onNewCommit
             )
 
-            val commits = viewModel.commitsByRepo.value
+            val commits = state.commits
 
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),

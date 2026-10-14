@@ -48,12 +48,11 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import fr.readonlymain.gitclient.R
-import fr.readonlymain.gitclient.ui.viewmodel.WorkspaceViewModel
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun CommitAction(
-    viewModel: WorkspaceViewModel,
+    onCommit: (String, () -> Unit) -> Unit,
     commitMessageState: TextFieldState,
     isCompact: Boolean,
     onManageFiles: () -> Unit = {},
@@ -193,7 +192,7 @@ fun CommitAction(
             )
             Button(
                 onClick = {
-                    viewModel.onCommit(commitMessageState.text.toString()) {
+                    onCommit(commitMessageState.text.toString()) {
                         commitMessageState.edit { delete(0, length) }
                     }
                 }

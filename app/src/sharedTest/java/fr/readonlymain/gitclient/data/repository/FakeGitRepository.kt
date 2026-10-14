@@ -48,6 +48,7 @@ class FakeGitRepository : GitRepository {
 
     override suspend fun checkoutBranch(repoPath: String, branch: Branch): Result<String> {
         lastActionCalled = "checkoutBranch"
+        if (!shouldFail) currentBranch = branch.name
         return handleResult(branch.name)
     }
 

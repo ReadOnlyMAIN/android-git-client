@@ -31,11 +31,10 @@ import androidx.compose.material3.ToggleFloatingActionButton
 import androidx.compose.material3.ToggleFloatingActionButtonDefaults.animateIcon
 import androidx.compose.material3.animateFloatingActionButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -53,7 +52,6 @@ import androidx.core.net.toUri
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import fr.readonlymain.gitclient.R
 import fr.readonlymain.gitclient.data.model.Repository
-import fr.readonlymain.gitclient.data.preferences.DataStoreCredentialsPreferences
 import fr.readonlymain.gitclient.data.preferences.DataStoreRepositoriesPreferences
 import fr.readonlymain.gitclient.ui.components.ObserveUiEvents
 import fr.readonlymain.gitclient.ui.components.repositories.CloneRepositoryDialog
@@ -63,7 +61,6 @@ import fr.readonlymain.gitclient.ui.components.repositories.ManageStoragePermiss
 import fr.readonlymain.gitclient.ui.components.repositories.RepositoryCard
 import fr.readonlymain.gitclient.ui.viewmodel.RepositoriesViewModel
 import fr.readonlymain.gitclient.utils.resolveUriToPath
-import kotlinx.coroutines.launch
 
 /**
  * Represents the different UI states for repository-related dialogs in the [RepositoriesScreen].
@@ -96,11 +93,7 @@ fun RepositoriesScreen(
     viewModel: RepositoriesViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-
-    val credentialsPreferences = remember { DataStoreCredentialsPreferences(context) }
-    val credentials by credentialsPreferences.credentialsFlow.collectAsState(initial = emptyList())
-    val repositories by viewModel.repositories.collectAsState()
+    val repositories by viewModel.repositories.collectAsStateWithLifecycle()
 
     // MANAGE_EXTERNAL_STORAGE permission verification
     var hasManageStoragePermission by remember {
@@ -204,9 +197,7 @@ fun RepositoriesScreen(
                             activeDialog = RepositoryDialogState.Edit(repo)
                         },
                         onDelete = {
-                            scope.launch {
-                                viewModel.deleteRepository(repo)
-                            }
+                            viewModel.deleteRepository(repo)
                         }
                     )
                 }
@@ -285,7 +276,9 @@ fun RepositoriesScreen(
                     if (selectedUri != null) {
                         val path = resolveUriToPath(selectedUri)
                         if (path != null) {
-                            viewModel.startClone(typedUrl, credentials, path)
+                            viewModel.startClone(typedUrl, path)
+                        } else {
+                            viewModel.unsupportedDirectory()
                         }
                     }
                 }
@@ -301,6 +294,8 @@ fun RepositoriesScreen(
                         val path = resolveUriToPath(selectedUri)
                         if (path != null) {
                             viewModel.startImport(path)
+                        } else {
+                            viewModel.unsupportedDirectory()
                         }
                     }
                 }

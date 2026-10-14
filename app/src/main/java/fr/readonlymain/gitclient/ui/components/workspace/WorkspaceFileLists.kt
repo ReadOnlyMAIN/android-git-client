@@ -24,12 +24,19 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import fr.readonlymain.gitclient.R
-import fr.readonlymain.gitclient.ui.viewmodel.WorkspaceViewModel
+import fr.readonlymain.gitclient.ui.viewmodel.WorkspaceUiState
 
 @Composable
 fun WorkspaceFileLists(
-    viewModel: WorkspaceViewModel,
-    modifier: Modifier
+    state: WorkspaceUiState,
+    modifier: Modifier,
+    onDiscard: () -> Unit,
+    onStageSelection: () -> Unit,
+    onStageAll: () -> Unit,
+    onUnstageSelection: () -> Unit,
+    onUnstageAll: () -> Unit,
+    onToggleUnstaged: (String) -> Unit,
+    onToggleStaged: (String) -> Unit
 ) {
     Column(
         modifier = modifier,
@@ -57,7 +64,7 @@ fun WorkspaceFileLists(
                         style = MaterialTheme.typography.titleLarge
                     )
                     IconButton(
-                        onClick = { viewModel.discardSelection() },
+                        onClick = onDiscard,
                         modifier = Modifier.size(48.dp)
                     ) {
                         Icon(
@@ -66,21 +73,21 @@ fun WorkspaceFileLists(
                         )
                     }
                     IconButton(
-                        onClick = { viewModel.stageSelection() },
+                        onClick = onStageSelection,
                         modifier = Modifier.size(48.dp)
                     ) {
                         Icon(
                             painterResource(id = R.drawable.ic_filled_keyboard_arrow_down),
-                            contentDescription = "Synchronize"
+                            contentDescription = "Stage selected files"
                         )
                     }
                     IconButton(
-                        onClick = { viewModel.stageAll() },
+                        onClick = onStageAll,
                         modifier = Modifier.size(48.dp)
                     ) {
                         Icon(
                             painterResource(id = R.drawable.ic_filled_keyboard_double_arrow_down),
-                            contentDescription = "Synchronize"
+                            contentDescription = "Stage all files"
                         )
                     }
                 }
@@ -92,12 +99,12 @@ fun WorkspaceFileLists(
                     )
                 ) {
                     // Unstage modified files.
-                    val unstaged = viewModel.unstagedFiles.value
+                    val unstaged = state.status.unstaged
 
                     if (unstaged.isEmpty()) {
                         Text("No changes detected", modifier = Modifier.padding(16.dp))
                     } else {
-                        val selectedFiles = viewModel.selectedUnstagedFiles.value
+                        val selectedFiles = state.selectedUnstaged
 
                         LazyColumn {
                             items(unstaged.toList()) { filePath ->
@@ -108,7 +115,7 @@ fun WorkspaceFileLists(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .clickable {
-                                            viewModel.toggleUnstagedFileSelection(
+                                            onToggleUnstaged(
                                                 filePath
                                             )
                                         }
@@ -149,21 +156,21 @@ fun WorkspaceFileLists(
                         style = MaterialTheme.typography.titleLarge
                     )
                     IconButton(
-                        onClick = { viewModel.unstageSelection() },
+                        onClick = onUnstageSelection,
                         modifier = Modifier.size(48.dp)
                     ) {
                         Icon(
                             painterResource(id = R.drawable.ic_filled_keyboard_arrow_up),
-                            contentDescription = "Synchronize"
+                            contentDescription = "Unstage selected files"
                         )
                     }
                     IconButton(
-                        onClick = { viewModel.unstageAll() },
+                        onClick = onUnstageAll,
                         modifier = Modifier.size(48.dp)
                     ) {
                         Icon(
                             painterResource(id = R.drawable.ic_filled_keyboard_double_arrow_up),
-                            contentDescription = "Synchronize"
+                            contentDescription = "Unstage all files"
                         )
                     }
                 }
@@ -174,12 +181,12 @@ fun WorkspaceFileLists(
                         containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
                     )
                 ) {
-                    val staged = viewModel.stagedFiles.value
+                    val staged = state.status.staged
 
                     if (staged.isEmpty()) {
                         Text("No changes staged", modifier = Modifier.padding(16.dp))
                     } else {
-                        val selectedFiles = viewModel.selectedStagedFiles.value
+                        val selectedFiles = state.selectedStaged
 
                         LazyColumn {
                             items(staged.toList()) { filePath ->
@@ -190,7 +197,7 @@ fun WorkspaceFileLists(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .clickable {
-                                            viewModel.toggleStagedFileSelection(
+                                            onToggleStaged(
                                                 filePath
                                             )
                                         }

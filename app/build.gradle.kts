@@ -45,8 +45,11 @@ android {
         compose = true
     }
     sourceSets {
+        getByName("test") {
+            kotlin.directories.add("src/sharedTest/java")
+        }
         getByName("androidTest") {
-            kotlin.directories.add("src/test/java")
+            kotlin.directories.add("src/sharedTest/java")
         }
     }
 }
@@ -54,6 +57,7 @@ android {
 dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.activity.compose)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)
@@ -80,6 +84,8 @@ dependencies {
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.turbine)
     testImplementation(libs.google.truth)
+    testImplementation(libs.okhttp.mockwebserver)
+    testImplementation(libs.okhttp.tls)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))

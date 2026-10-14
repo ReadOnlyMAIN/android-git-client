@@ -13,11 +13,13 @@ import fr.readonlymain.gitclient.data.model.Repository
 import fr.readonlymain.gitclient.data.model.canonicalRepositoryPath
 import fr.readonlymain.gitclient.data.model.UiEvent
 import fr.readonlymain.gitclient.data.preferences.RepositoriesPreferences
+import fr.readonlymain.gitclient.data.preferences.CredentialsPreferences
 import fr.readonlymain.gitclient.data.repository.GitRepository
-import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -39,10 +41,14 @@ import javax.inject.Inject
 class RepositoriesViewModel @Inject constructor(
     private val gitRepository: GitRepository,
     private val repositoriesPreferences: RepositoriesPreferences,
+    private val credentialsPreferences: CredentialsPreferences
 ) : ViewModel() {
 
     val repositories: StateFlow<List<Repository>> =
-        repositoriesPreferences.repositoriesFlow.stateIn(
+        repositoriesPreferences.repositoriesFlow.catch { error ->
+            if (error is CancellationException) throw error
+            _uiEvent.send(UiEvent.Error("Cannot read saved repositories"))
+        }.stateIn(
             scope = viewModelScope,
             started = SharingStarted.Lazily,
             initialValue = emptyList()
@@ -57,29 +63,30 @@ class RepositoriesViewModel @Inject constructor(
     var progress by mutableFloatStateOf(0f)
         private set
 
-    private val _uiEvent = MutableSharedFlow<UiEvent>()
-    val uiEvent = _uiEvent.asSharedFlow()
+    private val _uiEvent = Channel<UiEvent>(Channel.BUFFERED)
+    val uiEvent = _uiEvent.receiveAsFlow()
 
     /**
      * Initiates the cloning process of a Git repository from a remote URL.
      */
-    fun startClone(url: String, credentials: List<GitCredential>, localPath: String) {
+    fun startClone(url: String, localPath: String) {
         if (isCloning) return
         isCloning = true
         progress = 0f
         progressTask = ""
         launchOperation {
             try {
+                val credentials = credentialsPreferences.credentialsFlow.first()
                 val result = gitRepository.cloneRepo(url, credentials, localPath) { task, p ->
                     progressTask = task
                     progress = p
                 }
                 result.onSuccess { cloneResult ->
                     if (saveRepoData(cloneResult.repoUrl, cloneResult.folderPath, cloneResult.username)) {
-                        _uiEvent.emit(UiEvent.Success("Successfully cloned repository."))
+                        _uiEvent.send(UiEvent.Success("Successfully cloned repository."))
                     }
                 }.onFailure { error ->
-                    _uiEvent.emit(UiEvent.Error("Error: Can't clone repository ($error)"))
+                    _uiEvent.send(UiEvent.Error("Error: Can't clone repository ($error)"))
                 }
             } finally {
                 isCloning = false
@@ -100,10 +107,10 @@ class RepositoriesViewModel @Inject constructor(
             val result = gitRepository.importExistingRepo(localPath)
             result.onSuccess { cloneResult ->
                 if (saveRepoData(cloneResult.repoUrl, cloneResult.folderPath, cloneResult.username)) {
-                    _uiEvent.emit(UiEvent.Success("Successfully imported repository."))
+                    _uiEvent.send(UiEvent.Success("Successfully imported repository."))
                 }
             }.onFailure { error ->
-                _uiEvent.emit(UiEvent.Error("Error: Can't import repository ($error)"))
+                _uiEvent.send(UiEvent.Error("Error: Can't import repository ($error)"))
             }
         }
     }
@@ -124,7 +131,7 @@ class RepositoriesViewModel @Inject constructor(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            _uiEvent.emit(UiEvent.Error("Error: Can't save repository (${e.localizedMessage})"))
+            _uiEvent.send(UiEvent.Error("Error: Can't save repository (${e.localizedMessage})"))
             false
         }
     }
@@ -135,7 +142,7 @@ class RepositoriesViewModel @Inject constructor(
             result.onSuccess {
                 repositoriesPreferences.updateRepository(updatedRepo)
             }.onFailure { error ->
-                _uiEvent.emit(UiEvent.Error("Error: Can't update repository ${updatedRepo.name} ($error)"))
+                _uiEvent.send(UiEvent.Error("Error: Can't update repository ${updatedRepo.name} ($error)"))
             }
         }
     }
@@ -152,9 +159,13 @@ class RepositoriesViewModel @Inject constructor(
                 }
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
-                _uiEvent.emit(UiEvent.Error("Error: Can't update repository ${repo.name} ($e)"))
+                _uiEvent.send(UiEvent.Error("Error: Can't update repository ${repo.name} ($e)"))
             }
         }
+    }
+
+    fun unsupportedDirectory() {
+        launchOperation { _uiEvent.send(UiEvent.Error("Select a supported local storage directory, not a cloud or document provider")) }
     }
 
     private fun launchOperation(operation: suspend () -> Unit) = viewModelScope.launch {
@@ -163,7 +174,7 @@ class RepositoriesViewModel @Inject constructor(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            _uiEvent.emit(UiEvent.Error("Error: ${e.localizedMessage ?: "Unknown error"}"))
+            _uiEvent.send(UiEvent.Error("Error: ${e.localizedMessage ?: "Unknown error"}"))
         }
     }
 }

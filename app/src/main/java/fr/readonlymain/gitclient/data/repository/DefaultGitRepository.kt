@@ -8,6 +8,7 @@ import fr.readonlymain.gitclient.data.model.GitConfig
 import fr.readonlymain.gitclient.data.model.GitCredential
 import fr.readonlymain.gitclient.data.model.Repository
 import fr.readonlymain.gitclient.data.model.RepositoryStatus
+import fr.readonlymain.gitclient.data.model.branchesFromRefs
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.ensureActive
@@ -203,6 +204,22 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
     //endregion
 
     //region Branch Management
+    override suspend fun getBranches(repoPath: String): Result<List<Branch>> = withContext(Dispatchers.IO) {
+        try {
+            Git.open(File(repoPath)).use { git ->
+                val refs = git.branchList().setListMode(ListBranchCommand.ListMode.ALL).call().map { it.name }
+                val upstreams = refs.filter { it.startsWith("refs/heads/") }.associate { ref ->
+                    val name = ref.removePrefix("refs/heads/")
+                    name to org.eclipse.jgit.lib.BranchConfig(git.repository.config, name).remoteTrackingBranch
+                }
+                Result.success(branchesFromRefs(refs, upstreams))
+            }
+        } catch (e: Exception) {
+            e.preserveCancellation()
+            Result.failure(classifyGitFailure(e))
+        }
+    }
+
     override suspend fun getBranchesFullRefs(repoPath: String): Result<List<String>> =
         withContext(Dispatchers.IO) {
             try {
@@ -225,7 +242,9 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
         withContext(Dispatchers.IO) {
             try {
                 Git.open(File(repoPath)).use { git ->
-                    val command = git.checkout().setName(branch.name)
+                    val localName = if (!branch.isLocal && branch.remoteRef != null)
+                        branch.remoteRef.removePrefix("refs/remotes/").substringAfter('/') else branch.name
+                    val command = git.checkout().setName(localName)
 
                     if (!branch.isLocal && branch.isRemote && branch.remoteRef != null) {
                         command.setCreateBranch(true)
@@ -234,7 +253,7 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
                     }
 
                     command.call()
-                    Result.success(branch.name)
+                    Result.success(git.repository.branch)
                 }
             } catch (e: Exception) {
                 e.preserveCancellation()
@@ -295,7 +314,7 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
                     withRemoteCredentials(remoteUrl(repoPath, remote, true), credentials) { provider, monitor ->
                         validatePushResults(git.push().setRemote(remote)
                             .setTransportConfigCallback(safeGitTransport)
-                            .setRefSpecs(RefSpec(":refs/heads/${branch.name}"))
+                            .setRefSpecs(RefSpec(":refs/heads/${branch.remoteRef?.removePrefix("refs/remotes/")?.substringAfter('/') ?: branch.name}"))
                             .setCredentialsProvider(provider).setProgressMonitor(monitor).call())
                     }
                 }

@@ -21,7 +21,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -48,6 +48,8 @@ fun WorkspaceScreen(
     isCompact: Boolean = false,
     viewModel: WorkspaceViewModel = hiltViewModel()
 ) {
+    val state = viewModel.uiState.value
+    val repositories by viewModel.repositories.collectAsStateWithLifecycle()
     val commitMessageState = rememberTextFieldState()
 
     ObserveUiEvents(viewModel.uiEvent, snackbarHostState)
@@ -72,7 +74,14 @@ fun WorkspaceScreen(
                         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
                     ) {
                         WorkspaceFileLists(
-                            viewModel = viewModel,
+                            state = state,
+                            onDiscard = viewModel::discardSelection,
+                            onStageSelection = viewModel::stageSelection,
+                            onStageAll = viewModel::stageAll,
+                            onUnstageSelection = viewModel::unstageSelection,
+                            onUnstageAll = viewModel::unstageAll,
+                            onToggleUnstaged = viewModel::toggleUnstagedFileSelection,
+                            onToggleStaged = viewModel::toggleStagedFileSelection,
                             modifier = Modifier
                                 .padding(horizontal = 16.dp)
                                 .fillMaxSize()
@@ -83,7 +92,7 @@ fun WorkspaceScreen(
                 WorkspaceToolbar(
                     modifier = Modifier,
                     isCompact = false,
-                    repositories = viewModel.repositories.collectAsState().value,
+                    repositories = repositories,
                     selectedRepository = viewModel.repoName.value,
                     branches = viewModel.branches.value,
                     selectedBranch = viewModel.branchName.value,
@@ -110,7 +119,14 @@ fun WorkspaceScreen(
                 )
 
                 WorkspaceFileLists(
-                    viewModel = viewModel,
+                    state = state,
+                    onDiscard = viewModel::discardSelection,
+                    onStageSelection = viewModel::stageSelection,
+                    onStageAll = viewModel::stageAll,
+                    onUnstageSelection = viewModel::unstageSelection,
+                    onUnstageAll = viewModel::unstageAll,
+                    onToggleUnstaged = viewModel::toggleUnstagedFileSelection,
+                    onToggleStaged = viewModel::toggleStagedFileSelection,
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxHeight()
@@ -118,7 +134,8 @@ fun WorkspaceScreen(
             }
 
             WorkspaceCommitLists(
-                viewModel,
+                state = state,
+                onCommit = viewModel::onCommit,
                 modifier = Modifier
                     .weight(2f)
                     .fillMaxHeight(),
@@ -134,7 +151,7 @@ fun WorkspaceScreen(
                 modifier = Modifier
                     .align(Alignment.BottomCenter),
                 isCompact = true,
-                repositories = viewModel.repositories.collectAsState().value,
+                repositories = repositories,
                 selectedRepository = viewModel.repoName.value,
                 branches = viewModel.branches.value,
                 selectedBranch = viewModel.branchName.value,
@@ -194,7 +211,9 @@ fun WorkspaceScreen(
                         .padding(innerPadding)
                         .padding(horizontal = 16.dp)
                         .fillMaxSize(),
-                    viewModel = viewModel,
+                    state = state,
+                    onCommit = viewModel::onCommit,
+                    onToggleStaged = viewModel::toggleStagedFileSelection,
                     commitMessageState = commitMessageState,
                     onManageFiles = {
                         showFileSheet = true
