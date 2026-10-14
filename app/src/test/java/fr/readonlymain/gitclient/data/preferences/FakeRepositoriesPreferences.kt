@@ -1,6 +1,7 @@
 package fr.readonlymain.gitclient.data.preferences
 
 import fr.readonlymain.gitclient.data.model.Repository
+import fr.readonlymain.gitclient.data.model.requireUniqueRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -17,7 +18,10 @@ class FakeRepositoriesPreferences : RepositoriesPreferences {
     override val selectedBranchFlow: Flow<String?> = _selectedBranch.asStateFlow()
 
     override suspend fun addRepository(repository: Repository) {
-        _repositories.update { it + repository }
+        _repositories.update {
+            requireUniqueRepository(it, repository)
+            it + repository
+        }
     }
 
     override suspend fun updateRepository(repository: Repository) {

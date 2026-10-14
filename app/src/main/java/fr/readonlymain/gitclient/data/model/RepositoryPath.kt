@@ -4,3 +4,10 @@ import java.io.File
 
 /** Filesystem identity, independent of display names and syntactic path aliases. */
 fun canonicalRepositoryPath(path: String): String = File(path).canonicalPath
+
+fun requireUniqueRepository(repositories: List<Repository>, repository: Repository) {
+    val path = canonicalRepositoryPath(repository.localPath)
+    require(repositories.none { canonicalRepositoryPath(it.localPath) == path }) {
+        "Repository is already imported."
+    }
+}

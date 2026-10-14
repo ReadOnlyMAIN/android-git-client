@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.CancellationException
 import javax.inject.Inject
 
 /**
@@ -70,8 +71,9 @@ class RepositoriesViewModel @Inject constructor(
             }
             isCloning = false
             result.onSuccess { cloneResult ->
-                saveRepoData(cloneResult.repoUrl, cloneResult.folderPath, cloneResult.username)
-                _uiEvent.emit(UiEvent.Success("Successfully cloned repository."))
+                if (saveRepoData(cloneResult.repoUrl, cloneResult.folderPath, cloneResult.username)) {
+                    _uiEvent.emit(UiEvent.Success("Successfully cloned repository."))
+                }
             }.onFailure { error ->
                 _uiEvent.emit(UiEvent.Error("Error: Can't clone repository ($error)"))
             }
@@ -90,17 +92,19 @@ class RepositoriesViewModel @Inject constructor(
         viewModelScope.launch {
             val result = gitRepository.importExistingRepo(localPath)
             result.onSuccess { cloneResult ->
-                saveRepoData(cloneResult.repoUrl, cloneResult.folderPath, cloneResult.username)
-                _uiEvent.emit(UiEvent.Success("Successfully imported repository."))
+                if (saveRepoData(cloneResult.repoUrl, cloneResult.folderPath, cloneResult.username)) {
+                    _uiEvent.emit(UiEvent.Success("Successfully imported repository."))
+                }
             }.onFailure { error ->
                 _uiEvent.emit(UiEvent.Error("Error: Can't import repository ($error)"))
             }
         }
     }
 
-    private suspend fun saveRepoData(repoUrl: String, folderPath: String, username: String) {
+    private suspend fun saveRepoData(repoUrl: String, folderPath: String, username: String): Boolean {
         val folderName = folderPath.substringAfterLast("/")
 
+        return try {
         repositoriesPreferences.addRepository(
             Repository(
                 name = folderName,
@@ -109,6 +113,13 @@ class RepositoriesViewModel @Inject constructor(
                 username = username
             )
         )
+        true
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            _uiEvent.emit(UiEvent.Error("Error: Can't save repository (${e.localizedMessage})"))
+            false
+        }
     }
 
     fun editRepository(updatedRepo: Repository) {
