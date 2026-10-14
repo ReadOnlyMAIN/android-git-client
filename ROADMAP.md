@@ -75,7 +75,7 @@ Correcting the data and behavior behind the existing interface is in scope. New 
 | Bring existing ViewModel tests back in line with current behavior | 🟢 Implemented — validation pending |
 | Add integration tests using temporary Git repositories and local remotes | 🟢 Implemented — validation pending |
 | Cover staging, deleted files, conflicts, branch operations, rejected pushes, and destructive operations | 🟢 Implemented — validation pending |
-| Cover duplicate imports, repository switching, concurrent operations, cancellation, and persistence failures | 🔴 Planned |
+| Cover duplicate imports, repository switching, concurrent operations, cancellation, and persistence failures | 🟢 Implemented — validation pending |
 | Add CI checks for unit tests, Android lint, and debug / release compilation | 🔴 Planned |
 
 **Phase 1 completion criteria:** regression tests cover the corrected logic; supported existing Git workflows pass; cancellation and failure paths leave consistent state; no UI additions, removals, or modifications are included. Device validation must also check that existing layouts and interactions remain unchanged.
