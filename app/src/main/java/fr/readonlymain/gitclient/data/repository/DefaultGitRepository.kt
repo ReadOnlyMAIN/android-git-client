@@ -11,6 +11,7 @@ import fr.readonlymain.gitclient.data.model.Repository
 import fr.readonlymain.gitclient.data.model.RepositoryStatus
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import org.eclipse.jgit.api.CreateBranchCommand
 import org.eclipse.jgit.api.Git
@@ -44,6 +45,7 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
             try {
                 Git.open(File(repoPath)).use { Result.success(it.repository.branch) }
             } catch (e: Exception) {
+                e.preserveCancellation()
                 Result.failure(e)
             }
         }
@@ -72,6 +74,7 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
             requireLocalDirectory(localPath, writable = true)
             credentialAttempts(url, credentials)
         } catch (e: Exception) {
+            e.preserveCancellation()
             return@withContext Result.failure(e)
         }
         val folderName = url.trimEnd('/').substringAfterLast("/").removeSuffix(".git")
@@ -89,6 +92,7 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
         var lastErrorMessage = "Authentification Failed"
 
         for (cred in attempts) {
+            coroutineContext.ensureActive()
             try {
                 if (cred != attempts.first() && localFolder.exists()) {
                     deleteOwnedCloneDirectory(localFolder)
@@ -155,6 +159,11 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
                 )
 
             } catch (e: Exception) {
+                if (!coroutineContext.isActive) {
+                    if (localFolder.exists()) deleteOwnedCloneDirectory(localFolder)
+                    e.preserveCancellation()
+                }
+                e.preserveCancellation()
                 lastErrorMessage = e.localizedMessage ?: "Unknown error."
                 if (classifyGitFailure(e).kind != GitFailureKind.AUTHENTICATION) break
                 continue
@@ -181,6 +190,7 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
         val folder = try {
             requireLocalDirectory(localPath)
         } catch (e: Exception) {
+            e.preserveCancellation()
             return@withContext Result.failure(e)
         }
         val gitDir = File(folder, ".git")
@@ -201,6 +211,7 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
 
             Result.success(CloneResult(remoteUrl, localPath, ""))
         } catch (e: Exception) {
+            e.preserveCancellation()
             Result.failure(Exception("Can't open repository: ${e.localizedMessage}"))
         }
     }
@@ -220,6 +231,7 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
                     )
                 }
             } catch (e: Exception) {
+                e.preserveCancellation()
                 Result.failure(e)
             }
         }
@@ -240,6 +252,7 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
                     Result.success(branch.name)
                 }
             } catch (e: Exception) {
+                e.preserveCancellation()
                 e.printStackTrace()
                 Result.failure(
                     Exception(
@@ -268,6 +281,7 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
                 Result.success(Unit)
             }
         } catch (e: Exception) {
+            e.preserveCancellation()
             Result.failure(e)
         }
     }
@@ -298,6 +312,7 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
                     var success = false
 
                     for (cred in attempts) {
+                        coroutineContext.ensureActive()
                         try {
                             val pushCommand = git.push()
                                 .setRemote(branch.remoteRef?.removePrefix("refs/remotes/")?.substringBefore("/") ?: "origin")
@@ -313,6 +328,7 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
                             success = true
                             break
                         } catch (e: Exception) {
+                            e.preserveCancellation()
                             lastException = e
                             if (classifyGitFailure(e).kind != GitFailureKind.AUTHENTICATION) break
                         }
@@ -325,6 +341,7 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
                 Result.success(Unit)
             }
         } catch (e: Exception) {
+            e.preserveCancellation()
             Result.failure(if (localDeleted) PartialBranchDeletionException(true, e) else e)
         }
     }
@@ -344,6 +361,7 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
                     }
                 }
             } catch (e: Exception) {
+                e.preserveCancellation()
                 Result.failure(e)
             }
         }
@@ -384,6 +402,7 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
             var lastException: Exception? = null
 
             for (cred in attempts) {
+                coroutineContext.ensureActive()
                 try {
                     Git.open(File(repoPath)).use { git ->
                         val fetchCommand = git.fetch().setRemote(remote)
@@ -404,6 +423,7 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
                         return@withContext Result.success(Unit)
                     }
                 } catch (e: Exception) {
+                    e.preserveCancellation()
                     lastException = e
                     if (classifyGitFailure(e).kind != GitFailureKind.AUTHENTICATION) break
                 }
@@ -418,6 +438,7 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
             var lastException: Exception? = null
 
             for (cred in attempts) {
+                coroutineContext.ensureActive()
                 try {
                     Git.open(File(repoPath)).use { git ->
                         val pullCommand = git.pull().setRemote(remote)
@@ -450,6 +471,7 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
                         }
                     }
                 } catch (e: Exception) {
+                    e.preserveCancellation()
                     lastException = e
                     if (classifyGitFailure(e).kind != GitFailureKind.AUTHENTICATION) break
                 }
@@ -464,6 +486,7 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
             var lastException: Exception? = null
 
             for (cred in attempts) {
+                coroutineContext.ensureActive()
                 try {
                     Git.open(File(repoPath)).use { git ->
                         val pushCommand = git.push().setRemote(remote)
@@ -502,6 +525,7 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
                     }
 
                 } catch (e: Exception) {
+                    e.preserveCancellation()
                     lastException = e
                     if (classifyGitFailure(e).kind != GitFailureKind.AUTHENTICATION) break
                 }
@@ -597,6 +621,7 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
                     }
                 }
             } catch (e: Exception) {
+                e.preserveCancellation()
                 e.printStackTrace()
             }
 
@@ -626,6 +651,7 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
                     Result.success(Unit)
                 }
             } catch (e: Exception) {
+                e.preserveCancellation()
                 Result.failure(e)
             }
         }
@@ -666,6 +692,7 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
                     Result.success(Unit)
                 }
             } catch (e: Exception) {
+                e.preserveCancellation()
                 Result.failure(e)
             }
         }
@@ -697,6 +724,7 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
                     Result.success(Unit)
                 }
             } catch (e: Exception) {
+                e.preserveCancellation()
                 Result.failure(e)
             }
         }
@@ -715,6 +743,7 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
                 Result.success(Unit)
             }
         } catch (e: Exception) {
+            e.preserveCancellation()
             Result.failure(e)
         }
     }
@@ -734,6 +763,7 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
                     Result.success(Unit)
                 }
             } catch (e: Exception) {
+                e.preserveCancellation()
                 Result.failure(e)
             }
         }
@@ -754,6 +784,7 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
                     Result.success(Unit)
                 }
             } catch (e: Exception) {
+                e.preserveCancellation()
                 Result.failure(e)
             }
         }
@@ -770,6 +801,7 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
 
                 Result.success(Unit)
             } catch (e: Exception) {
+                e.preserveCancellation()
                 e.printStackTrace()
                 Result.failure(e)
             }

@@ -65,6 +65,7 @@ class RepositoriesViewModel @Inject constructor(
     fun startClone(url: String, credentials: List<GitCredential>, localPath: String) {
         viewModelScope.launch {
             isCloning = true
+            try {
             val result = gitRepository.cloneRepo(url, credentials, localPath) { task, p ->
                 progressTask = task
                 progress = p
@@ -76,6 +77,9 @@ class RepositoriesViewModel @Inject constructor(
                 }
             }.onFailure { error ->
                 _uiEvent.emit(UiEvent.Error("Error: Can't clone repository ($error)"))
+            }
+            } finally {
+                isCloning = false
             }
         }
     }
@@ -144,6 +148,7 @@ class RepositoriesViewModel @Inject constructor(
                     repositoriesPreferences.resetSelectedRepo()
                 }
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 _uiEvent.emit(UiEvent.Error("Error: Can't update repository ${repo.name} ($e)"))
             }
         }
