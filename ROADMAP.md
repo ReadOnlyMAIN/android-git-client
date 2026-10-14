@@ -73,7 +73,7 @@ Correcting the data and behavior behind the existing interface is in scope. New 
 | Goal | Status |
 |---|---|
 | Bring existing ViewModel tests back in line with current behavior | 🟢 Implemented — validation pending |
-| Add integration tests using temporary Git repositories and local remotes | 🔴 Planned |
+| Add integration tests using temporary Git repositories and local remotes | 🟢 Implemented — validation pending |
 | Cover staging, deleted files, conflicts, branch operations, rejected pushes, and destructive operations | 🔴 Planned |
 | Cover duplicate imports, repository switching, concurrent operations, cancellation, and persistence failures | 🔴 Planned |
 | Add CI checks for unit tests, Android lint, and debug / release compilation | 🔴 Planned |
