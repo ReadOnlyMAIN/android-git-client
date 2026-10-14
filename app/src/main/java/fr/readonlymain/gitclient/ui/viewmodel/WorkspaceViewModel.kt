@@ -254,6 +254,7 @@ class WorkspaceViewModel @Inject constructor(
                         refreshBranches(selectedRepo)
                         //_uiEvent.emit(UiEvent.Success("Successfully pulled refs"))
                     } else {
+                        refreshRepoStatus(selectedRepo)
                         val error = result.exceptionOrNull()?.localizedMessage ?: "Unknown error"
                         _uiEvent.emit(UiEvent.Error("Error: Can't pull ($error)"))
                     }
@@ -401,7 +402,7 @@ class WorkspaceViewModel @Inject constructor(
 
                     result.onSuccess {
                         selectedUnstagedFiles.value = emptySet()
-                        refreshCommitList(selectedRepo)
+                        refreshRepoStatus(selectedRepo)
                         _uiEvent.emit(UiEvent.Success("Changes discarded for ${filesToDiscard.size} files"))
                     }.onFailure { error ->
                         _uiEvent.emit(UiEvent.Error("Failed to discard changes: ${error.localizedMessage}"))
@@ -411,7 +412,7 @@ class WorkspaceViewModel @Inject constructor(
                     val result = gitRepository.discardFiles(selectedRepo, allUnstagedFiles)
 
                     result.onSuccess {
-                        refreshCommitList(selectedRepo)
+                        refreshRepoStatus(selectedRepo)
                         _uiEvent.emit(UiEvent.Success("All changes discarded"))
                     }.onFailure { error ->
                         _uiEvent.emit(UiEvent.Error("Error: Failed to discard all changes (${error.localizedMessage})"))
@@ -547,7 +548,6 @@ class WorkspaceViewModel @Inject constructor(
 
             result.onSuccess {
                 refreshCommitList(selectedRepo)
-                refreshRepoStatus(selectedRepo)
 
                 _uiEvent.emit(UiEvent.Success("Successfully commited"))
                 onCommitSuccess()

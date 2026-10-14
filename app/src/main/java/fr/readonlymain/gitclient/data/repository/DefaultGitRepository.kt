@@ -144,11 +144,7 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
                     }
                 })
 
-                Git.cloneRepository().apply {
-                }
-
-                val gitResult = cloneCommand.call()
-                gitResult.close()
+                cloneCommand.call().use { }
 
                 return@withContext Result.success(
                     CloneResult(
@@ -204,12 +200,10 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
         }
 
         try {
-            val git = Git.open(folder)
-            val config = git.repository.config
-            val remoteUrl = config.getString("remote", "origin", "url") ?: "Unknown distant URL."
-            git.close()
-
-            Result.success(CloneResult(remoteUrl, localPath, ""))
+            Git.open(folder).use { git ->
+                val remoteUrl = git.repository.config.getString("remote", "origin", "url") ?: "Unknown distant URL."
+                Result.success(CloneResult(remoteUrl, folder.canonicalPath, ""))
+            }
         } catch (e: Exception) {
             e.preserveCancellation()
             Result.failure(Exception("Can't open repository: ${e.localizedMessage}"))
@@ -478,7 +472,7 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
                     val remoteCommits = reachable("refs/remotes/")
 
                     val logs = logCommand.call()
-
+                    (logs as? AutoCloseable).use {
                     for (rev in logs) {
                         coroutineContext.ensureActive()
                         val author = rev.authorIdent
@@ -503,6 +497,7 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
                                 status = status
                             )
                         )
+                    }
                     }
                 }
             } catch (e: Exception) {
