@@ -10,6 +10,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import fr.readonlymain.gitclient.data.model.CloneResult
 import fr.readonlymain.gitclient.data.model.GitCredential
 import fr.readonlymain.gitclient.data.model.Repository
+import fr.readonlymain.gitclient.data.model.canonicalRepositoryPath
 import fr.readonlymain.gitclient.data.model.UiEvent
 import fr.readonlymain.gitclient.data.preferences.RepositoriesPreferences
 import fr.readonlymain.gitclient.data.repository.GitRepository
@@ -63,21 +64,23 @@ class RepositoriesViewModel @Inject constructor(
      * Initiates the cloning process of a Git repository from a remote URL.
      */
     fun startClone(url: String, credentials: List<GitCredential>, localPath: String) {
-        viewModelScope.launch {
-            isCloning = true
+        if (isCloning) return
+        isCloning = true
+        progress = 0f
+        progressTask = ""
+        launchOperation {
             try {
-            val result = gitRepository.cloneRepo(url, credentials, localPath) { task, p ->
-                progressTask = task
-                progress = p
-            }
-            isCloning = false
-            result.onSuccess { cloneResult ->
-                if (saveRepoData(cloneResult.repoUrl, cloneResult.folderPath, cloneResult.username)) {
-                    _uiEvent.emit(UiEvent.Success("Successfully cloned repository."))
+                val result = gitRepository.cloneRepo(url, credentials, localPath) { task, p ->
+                    progressTask = task
+                    progress = p
                 }
-            }.onFailure { error ->
-                _uiEvent.emit(UiEvent.Error("Error: Can't clone repository ($error)"))
-            }
+                result.onSuccess { cloneResult ->
+                    if (saveRepoData(cloneResult.repoUrl, cloneResult.folderPath, cloneResult.username)) {
+                        _uiEvent.emit(UiEvent.Success("Successfully cloned repository."))
+                    }
+                }.onFailure { error ->
+                    _uiEvent.emit(UiEvent.Error("Error: Can't clone repository ($error)"))
+                }
             } finally {
                 isCloning = false
             }
@@ -93,7 +96,7 @@ class RepositoriesViewModel @Inject constructor(
      * @param localPath The absolute path representing the local directory of the existing repository to import.
      */
     fun startImport(localPath: String) {
-        viewModelScope.launch {
+        launchOperation {
             val result = gitRepository.importExistingRepo(localPath)
             result.onSuccess { cloneResult ->
                 if (saveRepoData(cloneResult.repoUrl, cloneResult.folderPath, cloneResult.username)) {
@@ -106,18 +109,18 @@ class RepositoriesViewModel @Inject constructor(
     }
 
     private suspend fun saveRepoData(repoUrl: String, folderPath: String, username: String): Boolean {
-        val folderName = folderPath.substringAfterLast("/")
+        val folderName = java.io.File(folderPath).name
 
         return try {
-        repositoriesPreferences.addRepository(
-            Repository(
-                name = folderName,
-                remoteUrl = repoUrl,
-                localPath = folderPath,
-                username = username
+            repositoriesPreferences.addRepository(
+                Repository(
+                    name = folderName,
+                    remoteUrl = repoUrl,
+                    localPath = folderPath,
+                    username = username
+                )
             )
-        )
-        true
+            true
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -127,7 +130,7 @@ class RepositoriesViewModel @Inject constructor(
     }
 
     fun editRepository(updatedRepo: Repository) {
-        viewModelScope.launch {
+        launchOperation {
             val result = gitRepository.editRepository(updatedRepo)
             result.onSuccess {
                 repositoriesPreferences.updateRepository(updatedRepo)
@@ -138,19 +141,29 @@ class RepositoriesViewModel @Inject constructor(
     }
 
     fun deleteRepository(repo: Repository) {
-        viewModelScope.launch {
+        launchOperation {
             try {
                 val selectedRepo = repositoriesPreferences.selectedRepoFlow.first()
 
                 repositoriesPreferences.deleteRepository(repo.id)
 
-                if (repo.localPath == selectedRepo) {
+                if (selectedRepo != null && canonicalRepositoryPath(repo.localPath) == canonicalRepositoryPath(selectedRepo)) {
                     repositoriesPreferences.resetSelectedRepo()
                 }
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
                 _uiEvent.emit(UiEvent.Error("Error: Can't update repository ${repo.name} ($e)"))
             }
+        }
+    }
+
+    private fun launchOperation(operation: suspend () -> Unit) = viewModelScope.launch {
+        try {
+            operation()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            _uiEvent.emit(UiEvent.Error("Error: ${e.localizedMessage ?: "Unknown error"}"))
         }
     }
 }

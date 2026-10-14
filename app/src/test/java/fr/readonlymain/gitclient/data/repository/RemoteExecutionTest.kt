@@ -8,8 +8,16 @@ import org.eclipse.jgit.api.errors.TransportException
 import org.eclipse.jgit.transport.CredentialItem
 import org.eclipse.jgit.transport.URIish
 import org.junit.Test
+import java.net.URL
 
 class RemoteExecutionTest {
+    @Test fun `HTTP redirect origin guard rejects host changes and TLS downgrades`() {
+        val origin = URL("https://github.com/org/repo")
+        assertThat(sameOrigin(origin, URL("https://github.com:443/org/repo/info/refs"))).isTrue()
+        assertThat(sameOrigin(origin, URL("http://github.com/org/repo"))).isFalse()
+        assertThat(sameOrigin(origin, URL("https://evil.invalid/org/repo"))).isFalse()
+        assertThat(sameOrigin(origin, URL("https://github.com:8443/org/repo"))).isFalse()
+    }
     private val credential = GitCredential(accountName = "test", username = "user", token = "secret")
 
     @Test fun `credentials never cross host port protocol or repository boundaries`() {

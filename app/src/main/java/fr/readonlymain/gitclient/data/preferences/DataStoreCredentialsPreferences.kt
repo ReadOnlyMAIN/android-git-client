@@ -6,15 +6,10 @@ import android.security.keystore.KeyProperties
 import android.util.Base64
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
-import androidx.datastore.preferences.core.edit
-import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
 import fr.readonlymain.gitclient.data.model.GitCredential
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.map
-import kotlinx.serialization.json.Json
 import java.nio.charset.StandardCharsets
 import java.security.KeyStore
 import javax.crypto.Cipher
@@ -33,7 +28,7 @@ class DataStoreCredentialsPreferences @Inject constructor(
     @ApplicationContext private val context: Context
 ) : CredentialsPreferences {
     companion object {
-        private val CREDENTIALS_KEY = stringPreferencesKey("git_credentials_encrypted")
+        private val keyLock = Any()
         private const val KEY_ALIAS = "git_credentials_key"
         private const val ANDROID_KEY_STORE = "AndroidKeyStore"
         private const val AES_GCM_NOPADDING = "AES/GCM/NoPadding"
@@ -51,10 +46,10 @@ class DataStoreCredentialsPreferences @Inject constructor(
         persistence.update { list -> list.filter { it.id != id } }
     }
 
-    @Synchronized
-    private fun getOrCreateKey(): SecretKey {
+    private fun getKey(createIfMissing: Boolean): SecretKey = synchronized(keyLock) {
         val keyStore = KeyStore.getInstance(ANDROID_KEY_STORE).apply { load(null) }
-        keyStore.getKey(KEY_ALIAS, null)?.let { return it as SecretKey }
+        keyStore.getKey(KEY_ALIAS, null)?.let { return@synchronized it as SecretKey }
+        check(createIfMissing) { "Credential encryption key is unavailable" }
 
         val keyGenerator =
             KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, ANDROID_KEY_STORE)
@@ -69,13 +64,13 @@ class DataStoreCredentialsPreferences @Inject constructor(
             .build()
 
         keyGenerator.init(keyGenParameterSpec)
-        return keyGenerator.generateKey()
+        keyGenerator.generateKey()
     }
 
     private fun encrypt(data: String): String {
         return try {
             val cipher = Cipher.getInstance(AES_GCM_NOPADDING)
-            cipher.init(Cipher.ENCRYPT_MODE, getOrCreateKey())
+            cipher.init(Cipher.ENCRYPT_MODE, getKey(createIfMissing = true))
             val iv = cipher.iv
             val encrypted = cipher.doFinal(data.toByteArray(StandardCharsets.UTF_8))
 
@@ -96,7 +91,7 @@ class DataStoreCredentialsPreferences @Inject constructor(
 
             val cipher = Cipher.getInstance(AES_GCM_NOPADDING)
             val spec = GCMParameterSpec(128, iv)
-            cipher.init(Cipher.DECRYPT_MODE, getOrCreateKey(), spec)
+            cipher.init(Cipher.DECRYPT_MODE, getKey(createIfMissing = false), spec)
 
             String(cipher.doFinal(encrypted), StandardCharsets.UTF_8)
         } catch (e: Exception) {

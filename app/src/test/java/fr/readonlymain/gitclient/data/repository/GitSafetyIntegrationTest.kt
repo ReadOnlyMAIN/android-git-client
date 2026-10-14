@@ -14,6 +14,18 @@ class GitSafetyIntegrationTest {
     @get:Rule val temporary = TemporaryFolder()
     private val repository = DefaultGitRepository()
 
+    @Test fun `unstage before initial commit preserves working files`() = runTest {
+        val directory = temporary.newFolder("unborn")
+        Git.init().setDirectory(directory).call().close()
+        File(directory, "new.txt").writeText("precious")
+        repository.stageAll(directory.path).getOrThrow()
+        repository.unstageFiles(directory.path, emptyList()).getOrThrow()
+        assertThat(repository.getRepoStatus(directory.path).staged).containsExactly("new.txt")
+        repository.unstageFiles(directory.path, null).getOrThrow()
+        assertThat(repository.getRepoStatus(directory.path).staged).isEmpty()
+        assertThat(File(directory, "new.txt").readText()).isEqualTo("precious")
+    }
+
     @Test fun `stage and unstage modified added and deleted files`() = runTest {
         val directory = GitTestFixture(temporary.root).repository()
         File(directory, "file.txt").delete()
@@ -37,6 +49,8 @@ class GitSafetyIntegrationTest {
             val commit = git.log().call().first()
             assertThat(commit.fullMessage).isEqualTo("subject\n\nbody")
             assertThat(commit.authorIdent.name).isEqualTo("Author")
+            assertThat(commit.committerIdent.name).isEqualTo("Author")
+            assertThat(commit.committerIdent.emailAddress).isEqualTo("author@example.invalid")
         }
         assertThat(repository.getRepoStatus(directory.path).staged).isEmpty()
     }
@@ -129,5 +143,23 @@ class GitSafetyIntegrationTest {
         assertThat(failure).isInstanceOf(PartialBranchDeletionException::class.java)
         assertThat((failure as PartialBranchDeletionException).localBranchDeleted).isTrue()
         assertThat(repository.getBranchesFullRefs(directory.path).getOrThrow()).doesNotContain("refs/heads/feature")
+    }
+
+    @Test fun `remote deletion rejection is not reported as success`() = runTest {
+        val fixture = GitTestFixture(temporary.root)
+        val (remote) = fixture.remoteWithSeed()
+        val directory = fixture.clone(remote, "clone")
+        Git.open(directory).use { git ->
+            git.branchCreate().setName("feature").call()
+            git.push().setRemote("origin").setPushAll().call()
+        }
+        Git.open(remote).use { git ->
+            git.repository.config.apply { setBoolean("receive", null, "denyDeletes", true); save() }
+        }
+        val result = repository.deleteBranch(directory.path,
+            Branch("feature", true, true, "refs/heads/feature", "refs/remotes/origin/feature"), emptyList(), true)
+        assertThat(result.isFailure).isTrue()
+        assertThat(result.exceptionOrNull()).isInstanceOf(PartialBranchDeletionException::class.java)
+        assertThat(Git.open(remote).use { it.repository.resolve("refs/heads/feature") }).isNotNull()
     }
 }

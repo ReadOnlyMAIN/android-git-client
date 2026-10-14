@@ -31,6 +31,7 @@ internal class CredentialPersistence(
         return try {
             Json.decodeFromString<List<GitCredential>>(decrypt(payload))
         } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
             throw CredentialStorageException("Cannot read saved credentials", e)
         }
     }

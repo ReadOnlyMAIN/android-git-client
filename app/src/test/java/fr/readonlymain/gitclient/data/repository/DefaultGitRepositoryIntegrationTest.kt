@@ -12,6 +12,26 @@ class DefaultGitRepositoryIntegrationTest {
     @get:Rule val temporary = TemporaryFolder()
     private val repository = DefaultGitRepository()
 
+    @Test fun `cancelled clone callback removes its owned partial directory`() = runTest {
+        val fixture = GitTestFixture(temporary.root)
+        val (remote) = fixture.remoteWithSeed()
+        val destination = temporary.newFolder("cancelled-clone")
+        val failure = runCatching {
+            repository.cloneRepo(remote.toURI().toString(), emptyList(), destination.path) { _, _ ->
+                throw kotlinx.coroutines.CancellationException("cancel")
+            }
+        }.exceptionOrNull()
+        assertThat(failure).isInstanceOf(kotlinx.coroutines.CancellationException::class.java)
+        assertThat(destination.listFiles()).isEmpty()
+    }
+
+    @Test fun `history distinguishes an empty repository from an unavailable repository`() = runTest {
+        val empty = temporary.newFolder("empty")
+        Git.init().setDirectory(empty).call().close()
+        assertThat(repository.getCommits(empty.path)).isEmpty()
+        assertThat(runCatching { repository.getCommits(temporary.root.resolve("missing").path) }.isFailure).isTrue()
+    }
+
     @Test fun `clone creates a subfolder and preserves existing destinations`() = runTest {
         val fixture = GitTestFixture(temporary.root)
         val (remote) = fixture.remoteWithSeed()

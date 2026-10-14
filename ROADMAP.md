@@ -72,13 +72,27 @@ Correcting the data and behavior behind the existing interface is in scope. New 
 
 | Goal | Status |
 |---|---|
-| Bring existing ViewModel tests back in line with current behavior | 🟢 Implemented — validation pending |
-| Add integration tests using temporary Git repositories and local remotes | 🟢 Implemented — validation pending |
-| Cover staging, deleted files, conflicts, branch operations, rejected pushes, and destructive operations | 🟢 Implemented — validation pending |
-| Cover duplicate imports, repository switching, concurrent operations, cancellation, and persistence failures | 🟢 Implemented — validation pending |
+| Bring existing ViewModel tests back in line with current behavior | 🟢 Implemented — local tests passed |
+| Add integration tests using temporary Git repositories and local remotes | 🟢 Implemented — local tests passed |
+| Cover staging, deleted files, conflicts, branch operations, rejected pushes, and destructive operations | 🟢 Implemented — local tests passed |
+| Cover duplicate imports, repository switching, concurrent operations, cancellation, and persistence failures | 🟢 Implemented — local tests passed |
 | Add CI checks for unit tests, Android lint, and debug / release compilation | 🟢 Implemented — first hosted run pending |
 
 **Phase 1 completion criteria:** regression tests cover the corrected logic; supported existing Git workflows pass; cancellation and failure paths leave consistent state; no UI additions, removals, or modifications are included. Device validation must also check that existing layouts and interactions remain unchanged.
+
+#### Local validation and remaining release gates
+
+The logic cleanup includes 58 local JVM tests, including JGit integration tests against temporary local remotes. No personal repository or external Git account is used by these tests.
+
+```bash
+./gradlew testDebugUnitTest lintDebug assembleDebug assembleRelease compileDebugAndroidTestKotlin
+```
+
+The local checks cover unit / integration tests, Android lint, debug and release builds (including R8), and compilation of instrumented tests. Lint warnings remain; a successful build is not a claim that lint is warning-free.
+
+**Still pending:** the first hosted CI run, execution on Android devices / emulators, real HTTPS authentication and cancellation, Android Keystore failure / restore scenarios, and confirmation that the unchanged UI behaves correctly on compact and large screens. Phase 1 is not declared release-ready until those checks are complete.
+
+Credentials are now restricted by their stored `providerUrl` (default: GitHub), and cross-origin HTTP redirects are rejected. Broader credential-association controls remain a Phase 2 UI task. Unsupported document-picker providers currently return no filesystem path; explicit visual rejection feedback also remains deferred to Phase 2.
 
 ### Phase 2 — Functional additions and UX/UI improvements
 

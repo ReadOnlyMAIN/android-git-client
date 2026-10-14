@@ -1,6 +1,5 @@
 package fr.readonlymain.gitclient.data.repository
 
-import android.net.Uri
 import fr.readonlymain.gitclient.data.model.Branch
 import fr.readonlymain.gitclient.data.model.CloneResult
 import fr.readonlymain.gitclient.data.model.CommitInfo
@@ -54,12 +53,12 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
      * Clones a Git repository to a local directory.
      *
      * This function attempts to clone a repository using a list of potential credentials,
-     * starting with an anonymous (public) attempt. It resolves the provided [treeUri]
-     * to a local file system path and creates a subfolder based on the repository URL.
+     * starting with an anonymous (public) attempt. It creates an owned subfolder
+     * inside the validated local destination.
      *
      * @param url The remote Git repository URL to clone.
      * @param credentials A list of [GitCredential] to attempt for authentication if public access fails.
-     * @param treeUri The [Uri] representing the base directory where the repository should be cloned.
+     * @param localPath The local filesystem directory where the repository should be cloned.
      * @param onProgress A callback invoked during the cloning process, providing a status message (String)
      * and the progress ratio (Float, ranging from 0.0 to 1.0, or -1.0 if progress is indeterminate).
      * @return A [CloneResult] indicating the success or failure of the operation, including the local path or an error message.
@@ -88,86 +87,78 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
             return@withContext Result.failure(Exception("Folder already exists."))
         }
 
-        // Attempts list : First null (public), then saved credentials
-        var lastErrorMessage = "Authentification Failed"
-
-        for (cred in attempts) {
-            coroutineContext.ensureActive()
-            try {
-                if (cred != attempts.first() && localFolder.exists()) {
-                    deleteOwnedCloneDirectory(localFolder)
-                    check(localFolder.mkdir()) { "Cannot recreate clone directory" }
-                }
-
-                val statusText = if (cred == null) "Public access attempt..."
-                else "Trying with ${cred.accountName}..."
-                onProgress(statusText, -1f)
-
-                val cloneCommand = Git.cloneRepository()
-                    .setURI(url)
-                    .setDirectory(localFolder)
-
-                if (cred != null) {
-                    cloneCommand.setCredentialsProvider(
-                        scopedCredentials(cred)
-                    )
-                }
-
-                cloneCommand.setProgressMonitor(object : ProgressMonitor {
-                    private var currentTask = ""
-                    private var total = 0
-                    private var current = 0
-
-                    override fun start(totalTasks: Int) {}
-                    override fun beginTask(title: String, totalWork: Int) {
-                        currentTask = title
-                        total = totalWork
-                        current = 0
-                        report()
+        try {
+            var lastFailure: Exception? = null
+            for ((index, cred) in attempts.withIndex()) {
+                coroutineContext.ensureActive()
+                try {
+                    if (index > 0 && localFolder.exists()) {
+                        deleteOwnedCloneDirectory(localFolder)
+                        check(localFolder.mkdir()) { "Cannot recreate clone directory" }
                     }
 
-                    override fun update(completed: Int) {
-                        current += completed
-                        report()
+                    val statusText = if (cred == null) "Public access attempt..."
+                        else "Trying with ${cred.accountName}..."
+                    onProgress(statusText, -1f)
+
+                    val cloneCommand = Git.cloneRepository()
+                        .setURI(url)
+                        .setDirectory(localFolder)
+                        .setTransportConfigCallback(safeGitTransport)
+
+                    if (cred != null) {
+                        cloneCommand.setCredentialsProvider(scopedCredentials(cred))
                     }
 
-                    override fun endTask() {}
-                    override fun isCancelled(): Boolean = !coroutineContext.isActive
-                    override fun showDuration(enabled: Boolean) {}
-                    private fun report() {
-                        val p = if (total > 0) {
-                            current.toFloat() / total
-                        } else {
-                            -1f
+                    cloneCommand.setProgressMonitor(object : ProgressMonitor {
+                        private var currentTask = ""
+                        private var total = 0
+                        private var current = 0
+
+                        override fun start(totalTasks: Int) {}
+                        override fun beginTask(title: String, totalWork: Int) {
+                            currentTask = title
+                            total = totalWork
+                            current = 0
+                            report()
                         }
-                        onProgress(currentTask, p)
-                    }
-                })
 
-                cloneCommand.call().use { }
+                        override fun update(completed: Int) {
+                            current += completed
+                            report()
+                        }
 
-                return@withContext Result.success(
-                    CloneResult(
-                        url,
-                        localFolder.absolutePath,
-                        cred?.username ?: ""
+                        override fun endTask() {}
+                        override fun isCancelled(): Boolean = !coroutineContext.isActive
+                        override fun showDuration(enabled: Boolean) {}
+                        private fun report() {
+                            val progress = if (total > 0) current.toFloat() / total else -1f
+                            onProgress(currentTask, progress)
+                        }
+                    })
+
+                    cloneCommand.call().use { }
+                    coroutineContext.ensureActive()
+                    return@withContext Result.success(
+                        CloneResult(url, localFolder.canonicalPath, cred?.username ?: "")
                     )
-                )
-
-            } catch (e: Exception) {
-                if (!coroutineContext.isActive) {
-                    if (localFolder.exists()) deleteOwnedCloneDirectory(localFolder)
+                } catch (e: Exception) {
                     e.preserveCancellation()
+                    val failure = classifyGitFailure(e)
+                    if (failure.kind != GitFailureKind.AUTHENTICATION) throw failure
+                    lastFailure = failure
                 }
-                e.preserveCancellation()
-                lastErrorMessage = e.localizedMessage ?: "Unknown error."
-                if (classifyGitFailure(e).kind != GitFailureKind.AUTHENTICATION) break
-                continue
             }
+            throw lastFailure ?: GitOperationException(GitFailureKind.AUTHENTICATION, "Authentication failed")
+        } catch (e: Exception) {
+            try {
+                if (localFolder.exists()) deleteOwnedCloneDirectory(localFolder)
+            } catch (cleanup: Exception) {
+                e.addSuppressed(cleanup)
+            }
+            e.preserveCancellation()
+            Result.failure(classifyGitFailure(e))
         }
-
-        if (localFolder.exists()) deleteOwnedCloneDirectory(localFolder)
-        Result.failure(Exception("Can't clone repository. Last error: $lastErrorMessage"))
     }
 
     /**
@@ -176,7 +167,7 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
      * This function verifies if the selected directory contains a valid `.git` folder,
      * opens the repository to extract the remote "origin" URL, and returns the result.
      *
-     * @param treeUri The [Uri] of the directory to be imported as a repository.
+     * @param localPath The local directory to be imported as a repository.
      * @return A [CloneResult] containing the success status, the remote URL (as the message),
      * and the absolute path to the local folder.
      */
@@ -303,6 +294,7 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
                     val remote = branch.remoteRef?.removePrefix("refs/remotes/")?.substringBefore("/") ?: "origin"
                     withRemoteCredentials(remoteUrl(repoPath, remote, true), credentials) { provider, monitor ->
                         validatePushResults(git.push().setRemote(remote)
+                            .setTransportConfigCallback(safeGitTransport)
                             .setRefSpecs(RefSpec(":refs/heads/${branch.name}"))
                             .setCredentialsProvider(provider).setProgressMonitor(monitor).call())
                     }
@@ -348,9 +340,11 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
     private fun remoteUrl(repoPath: String, remote: String, push: Boolean = false): String =
         Git.open(File(repoPath)).use { git ->
             val config = git.repository.config
-            (if (push) config.getString("remote", remote, "pushurl") else null)
-                ?: config.getString("remote", remote, "url")
-                ?: throw IllegalArgumentException("Remote has no URL: $remote")
+            val remoteConfig = org.eclipse.jgit.transport.RemoteConfig(config, remote)
+            val urls = if (push && remoteConfig.pushURIs.isNotEmpty()) remoteConfig.pushURIs else remoteConfig.urIs
+            require(urls.isNotEmpty()) { "Remote has no URL: $remote" }
+            urls.forEach { validateRemoteUrl(it.toPrivateString()) }
+            urls.first().toPrivateString()
         }
 
     private fun validatePushResults(results: Iterable<org.eclipse.jgit.transport.PushResult>) {
@@ -366,12 +360,14 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
     }
     override suspend fun fetch(repoPath: String, credentials: List<GitCredential>): Result<Unit> =
         remoteOperation(repoPath, credentials) { git, remote, provider, monitor ->
-            git.fetch().setRemote(remote).setCredentialsProvider(provider).setProgressMonitor(monitor).call()
+            git.fetch().setRemote(remote).setTransportConfigCallback(safeGitTransport)
+                .setCredentialsProvider(provider).setProgressMonitor(monitor).call()
         }
 
     override suspend fun pull(repoPath: String, credentials: List<GitCredential>): Result<Unit> =
         remoteOperation(repoPath, credentials) { git, remote, provider, monitor ->
-            val result = git.pull().setRemote(remote).setCredentialsProvider(provider).setProgressMonitor(monitor).call()
+            val result = git.pull().setRemote(remote).setTransportConfigCallback(safeGitTransport)
+                .setCredentialsProvider(provider).setProgressMonitor(monitor).call()
             if (!result.isSuccessful) {
                 throw GitOperationException(
                     if (result.mergeResult?.conflicts?.isNotEmpty() == true) GitFailureKind.CONFLICT else GitFailureKind.REJECTED,
@@ -381,7 +377,8 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
 
     override suspend fun push(repoPath: String, credentials: List<GitCredential>): Result<Unit> =
         remoteOperation(repoPath, credentials, push = true) { git, remote, provider, monitor ->
-            validatePushResults(git.push().setRemote(remote).setCredentialsProvider(provider).setProgressMonitor(monitor).call())
+            validatePushResults(git.push().setRemote(remote).setTransportConfigCallback(safeGitTransport)
+                .setCredentialsProvider(provider).setProgressMonitor(monitor).call())
         }
 
     private suspend fun remoteOperation(
@@ -415,7 +412,7 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
      *
      * @param repoPath The absolute file system path to the local repository directory.
      * @return A list of [CommitInfo] objects representing the history of the current branch.
-     * Returns an empty list if an error occurs or if no commits are found.
+     * Returns an empty list for an unborn repository; other failures propagate to the caller.
      */
     override suspend fun getCommits(
         repoPath: String,
@@ -453,7 +450,8 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
                     }
 
                     if (!hasStarted) {
-                        repo.resolve("HEAD")?.let { logCommand.add(it) }
+                        val head = repo.resolve("HEAD") ?: return@withContext emptyList()
+                        logCommand.add(head)
                     }
 
                     suspend fun reachable(prefix: String): Set<String> = RevWalk(repo).use { walk ->
@@ -473,36 +471,36 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
 
                     val logs = logCommand.call()
                     (logs as? AutoCloseable).use {
-                    for (rev in logs) {
-                        coroutineContext.ensureActive()
-                        val author = rev.authorIdent
-                        val date = Date(rev.commitTime.toLong() * 1000)
-                        val isLocal = rev.name in localCommits
-                        val isRemote = rev.name in remoteCommits
+                        for (rev in logs) {
+                            coroutineContext.ensureActive()
+                            val author = rev.authorIdent
+                            val date = Date(rev.commitTime.toLong() * 1000)
+                            val isLocal = rev.name in localCommits
+                            val isRemote = rev.name in remoteCommits
 
-                        val status = when {
-                            isLocal && isRemote -> CommitStatus.SYNCED
-                            isLocal -> CommitStatus.LOCAL_ONLY
-                            isRemote -> CommitStatus.REMOTE_ONLY
-                            else -> CommitStatus.UNKNOWN
-                        }
+                            val status = when {
+                                isLocal && isRemote -> CommitStatus.SYNCED
+                                isLocal -> CommitStatus.LOCAL_ONLY
+                                isRemote -> CommitStatus.REMOTE_ONLY
+                                else -> CommitStatus.UNKNOWN
+                            }
 
-                        commitList.add(
-                            CommitInfo(
-                                commitHash = rev.name,
-                                authorName = author.name ?: "Unknown",
-                                authorEmail = author.emailAddress ?: "",
-                                commitMessage = rev.shortMessage,
-                                commitDate = dateFormatter.format(date),
-                                status = status
+                            commitList.add(
+                                CommitInfo(
+                                    commitHash = rev.name,
+                                    authorName = author.name ?: "Unknown",
+                                    authorEmail = author.emailAddress ?: "",
+                                    commitMessage = rev.shortMessage,
+                                    commitDate = dateFormatter.format(date),
+                                    status = status
+                                )
                             )
-                        )
-                    }
+                        }
                     }
                 }
             } catch (e: Exception) {
                 e.preserveCancellation()
-                e.printStackTrace()
+                throw classifyGitFailure(e)
             }
 
             return@withContext commitList
@@ -582,6 +580,7 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
     override suspend fun stageFiles(repoPath: String, filePatterns: List<String>): Result<Unit> =
         withContext(Dispatchers.IO) {
             try {
+                filePatterns.forEach { checkedRepositoryFile(repoPath, it) }
                 Git.open(File(repoPath)).use { git ->
                     val status = git.status().call()
                     val addCommand = git.add()
@@ -634,7 +633,20 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
     ): Result<Unit> =
         withContext(Dispatchers.IO) {
             try {
+                if (filePatterns?.isEmpty() == true) return@withContext Result.success(Unit)
+                filePatterns?.forEach { checkedRepositoryFile(repoPath, it) }
                 Git.open(File(repoPath)).use { git ->
+                    if (git.repository.resolve("HEAD") == null) {
+                        // There is no tree to reset to before the initial commit.
+                        val staged = git.status().call().added
+                        val paths = filePatterns ?: staged.toList()
+                        if (paths.isNotEmpty()) {
+                            val remove = git.rm().setCached(true)
+                            paths.filter { it in staged }.forEach { remove.addFilepattern(it) }
+                            if (paths.any { it in staged }) remove.call()
+                        }
+                        return@withContext Result.success(Unit)
+                    }
                     val reset = git.reset()
 
                     filePatterns?.forEach { reset.addPath(it) }
@@ -656,10 +668,13 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
     ): Result<Unit> =
         withContext(Dispatchers.IO) {
             try {
+                require(gitConfig.name.isNotBlank() && gitConfig.email.isNotBlank()) { "Git author name and email are required" }
+                require(message.isNotBlank()) { "Commit message is required" }
                 Git.open(File(repoPath)).use { git ->
                     git.commit()
                         .setMessage(message)
                         .setAuthor(gitConfig.name, gitConfig.email)
+                        .setCommitter(gitConfig.name, gitConfig.email)
                         .call()
                     Result.success(Unit)
                 }

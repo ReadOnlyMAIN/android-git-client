@@ -12,6 +12,7 @@ import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.awaitCancellation
 import org.junit.Rule
 import org.junit.Test
 
@@ -91,5 +92,44 @@ class WorkspaceReliabilityTest {
         assertThat(runCatching {
             requireUniqueRepository(listOf(existing), Repository(localPath = "/repo/child/.."))
         }.isFailure).isTrue()
+    }
+
+    @Test fun `remote cancellation clears busy state and emits no failure`() = runTest {
+        val repository = object : GitRepository by fake {
+            override suspend fun fetch(repoPath: String, credentials: List<GitCredential>): Result<Unit> = awaitCancellation()
+        }
+        val vm = viewModel(repository)
+        vm.onRepositorySelected("/repo")
+        vm.uiEvent.test {
+            vm.onSynchronize()
+            assertThat(vm.isSynchronizing.value).isTrue()
+            vm.onSynchronize()
+            assertThat(vm.isSynchronizing.value).isFalse()
+            expectNoEvents()
+        }
+    }
+
+    @Test fun `queued mutations cannot run in a newly checked out branch`() = runTest {
+        val gate = CompletableDeferred<Unit>()
+        var staged = false
+        val repository = object : GitRepository by fake {
+            override suspend fun checkoutBranch(repoPath: String, branch: Branch): Result<String> {
+                gate.await()
+                return Result.success(branch.name)
+            }
+            override suspend fun stageFiles(repoPath: String, filePatterns: List<String>): Result<Unit> {
+                staged = true
+                return Result.success(Unit)
+            }
+        }
+        fake.statusToReturn = mapOf("unstaged" to setOf("file.txt"))
+        val vm = viewModel(repository)
+        vm.onRepositorySelected("/repo")
+        vm.toggleUnstagedFileSelection("file.txt")
+        vm.onBranchSelected(Branch("feature", true, false))
+        vm.stageSelection()
+        gate.complete(Unit)
+        assertThat(staged).isFalse()
+        assertThat(vm.branchName.value).isEqualTo("feature")
     }
 }
