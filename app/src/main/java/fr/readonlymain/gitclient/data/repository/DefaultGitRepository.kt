@@ -21,7 +21,6 @@ import org.eclipse.jgit.lib.ProgressMonitor
 import org.eclipse.jgit.revwalk.RevWalk
 import org.eclipse.jgit.transport.RefSpec
 import org.eclipse.jgit.transport.RemoteRefUpdate
-import org.eclipse.jgit.transport.UsernamePasswordCredentialsProvider
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -69,6 +68,11 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
         localPath: String,
         onProgress: (String, Float) -> Unit
     ): Result<CloneResult> = withContext(Dispatchers.IO) {
+        val attempts = try {
+            credentialAttempts(url, credentials)
+        } catch (e: Exception) {
+            return@withContext Result.failure(e)
+        }
         val folderName = url.trimEnd('/').substringAfterLast("/").removeSuffix(".git")
         if (!folderName.matches(Regex("[A-Za-z0-9._-]+")) || folderName in setOf(".", "..", ".git")) {
             return@withContext Result.failure(IllegalArgumentException("Invalid repository folder name"))
@@ -81,7 +85,6 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
         }
 
         // Attempts list : First null (public), then saved credentials
-        val attempts = credentialAttempts(url, credentials)
         var lastErrorMessage = "Authentification Failed"
 
         for (cred in attempts) {
@@ -101,7 +104,7 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
 
                 if (cred != null) {
                     cloneCommand.setCredentialsProvider(
-                        UsernamePasswordCredentialsProvider(cred.username, cred.token)
+                        scopedCredentials(cred)
                     )
                 }
 
@@ -297,7 +300,7 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
 
                             if (cred != null) {
                                 pushCommand.setCredentialsProvider(
-                                    UsernamePasswordCredentialsProvider(cred.username, cred.token)
+                                    scopedCredentials(cred)
                                 )
                             }
 
@@ -389,7 +392,7 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
                         })
                         if (cred != null) {
                             fetchCommand.setCredentialsProvider(
-                                UsernamePasswordCredentialsProvider(cred.username, cred.token)
+                                scopedCredentials(cred)
                             )
                         }
                         fetchCommand.call()
@@ -424,7 +427,7 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
 
                         if (cred != null) {
                             pullCommand.setCredentialsProvider(
-                                UsernamePasswordCredentialsProvider(cred.username, cred.token)
+                                scopedCredentials(cred)
                             )
                         }
 
@@ -470,7 +473,7 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
 
                         if (cred != null) {
                             pushCommand.setCredentialsProvider(
-                                UsernamePasswordCredentialsProvider(cred.username, cred.token)
+                                scopedCredentials(cred)
                             )
                         }
 
@@ -753,6 +756,7 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
     override suspend fun editRepository(repo: Repository): Result<Unit> =
         withContext(Dispatchers.IO) {
             try {
+                validateRemoteUrl(repo.remoteUrl)
                 Git.open(File(repo.localPath)).use { git ->
                     val config = git.repository.config
                     config.setString("remote", "origin", "url", repo.remoteUrl)

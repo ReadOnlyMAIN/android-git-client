@@ -50,7 +50,7 @@ Correcting the data and behavior behind the existing interface is in scope. New 
 | Goal | Status |
 |---|---|
 | Restrict credential use to the intended host / repository; prevent indiscriminate credential fallback | 🟢 Implemented — validation pending |
-| Validate remote URLs and require HTTPS when transmitting HTTP credentials | 🔴 Planned |
+| Validate remote URLs and require HTTPS when transmitting HTTP credentials | 🟢 Implemented — validation pending |
 | Propagate encryption and decryption failures instead of silently treating them as empty credentials | 🔴 Planned |
 | Keep credential updates atomic and avoid overwriting data after a failed read or encryption | 🔴 Planned |
 | Define backup and restore rules for Keystore-encrypted credentials | 🔴 Planned |
