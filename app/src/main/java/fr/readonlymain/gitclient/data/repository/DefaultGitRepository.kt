@@ -263,6 +263,7 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
         deleteRemote: Boolean,
         forceDelete: Boolean
     ): Result<Unit> = withContext(Dispatchers.IO) {
+        var localDeleted = false
         try {
             Git.open(File(repoPath)).use { git ->
                 // Delete local branch if it exists
@@ -271,6 +272,7 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
                         .setBranchNames(branch.name)
                         .setForce(forceDelete)
                         .call()
+                    localDeleted = true
                 }
 
                 if (deleteRemote && branch.isRemote) {
@@ -281,7 +283,7 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
                     for (cred in attempts) {
                         try {
                             val pushCommand = git.push()
-                                .setRemote("origin")
+                                .setRemote(branch.remoteRef?.removePrefix("refs/remotes/")?.substringBefore("/") ?: "origin")
                                 .setRefSpecs(RefSpec(":refs/heads/${branch.name}"))
 
                             if (cred != null) {
@@ -290,7 +292,7 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
                                 )
                             }
 
-                            pushCommand.call()
+                            validatePushResults(pushCommand.call())
                             success = true
                             break
                         } catch (e: Exception) {
@@ -299,15 +301,13 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
                     }
 
                     if (!success) {
-                        return@withContext Result.failure(
-                            lastException ?: Exception("Failed to delete remote branch")
-                        )
+                        throw lastException ?: Exception("Failed to delete remote branch")
                     }
                 }
                 Result.success(Unit)
             }
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(if (localDeleted) PartialBranchDeletionException(true, e) else e)
         }
     }
 
@@ -332,6 +332,16 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
     //endregion
 
     //region Remote Operations
+    private fun validatePushResults(results: Iterable<org.eclipse.jgit.transport.PushResult>) {
+        results.forEach { result ->
+            result.remoteUpdates.forEach { update ->
+                check(update.status == RemoteRefUpdate.Status.OK ||
+                    update.status == RemoteRefUpdate.Status.UP_TO_DATE) {
+                    "Push failed for ${update.remoteName}: ${update.status}"
+                }
+            }
+        }
+    }
     override suspend fun fetch(repoPath: String, credentials: List<GitCredential>): Result<Unit> =
         withContext(Dispatchers.IO) {
             val attempts = listOf<GitCredential?>(null) + credentials

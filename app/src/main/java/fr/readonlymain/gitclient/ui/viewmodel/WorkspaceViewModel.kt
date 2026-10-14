@@ -197,6 +197,7 @@ class WorkspaceViewModel @Inject constructor(
                     refreshBranches(selectedRepo)
                     _uiEvent.emit(UiEvent.Success("Branch ${branch.name} deleted"))
                 }.onFailure { error ->
+                    refreshBranches(selectedRepo)
                     _uiEvent.emit(UiEvent.Error("Error: Can't delete branch ${branch.name} (${error.localizedMessage})"))
                 }
             }
