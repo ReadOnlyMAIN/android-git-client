@@ -41,6 +41,8 @@
 -dontwarn org.ietf.jgss.Oid
 -dontwarn org.slf4j.impl.StaticLoggerBinder
 
-# JGit rules: Keep all JGit classes and members to avoid reflection-based crashes
+# JGit uses reflective / service-loaded implementations. Retain these rules during
+# logic-only cleanup; narrowing them requires release-on-device Git smoke tests.
+# Do not trade runtime compatibility for APK size before that validation exists.
 -keep class org.eclipse.jgit.** { *; }
 -keep interface org.eclipse.jgit.** { *; }
