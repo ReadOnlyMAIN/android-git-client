@@ -52,7 +52,7 @@ Correcting the data and behavior behind the existing interface is in scope. New 
 | Restrict credential use to the intended host / repository; prevent indiscriminate credential fallback | 🟢 Implemented — validation pending |
 | Validate remote URLs and require HTTPS when transmitting HTTP credentials | 🟢 Implemented — validation pending |
 | Propagate encryption and decryption failures instead of silently treating them as empty credentials | 🟢 Implemented — validation pending |
-| Keep credential updates atomic and avoid overwriting data after a failed read or encryption | 🔴 Planned |
+| Keep credential updates atomic and avoid overwriting data after a failed read or encryption | 🟢 Implemented — validation pending |
 | Define backup and restore rules for Keystore-encrypted credentials | 🔴 Planned |
 | Validate supported local storage paths and report unsupported providers through existing error handling | 🔴 Planned |
 

@@ -39,37 +39,19 @@ class DataStoreCredentialsPreferences @Inject constructor(
         private const val AES_GCM_NOPADDING = "AES/GCM/NoPadding"
     }
 
-    override val credentialsFlow: Flow<List<GitCredential>> = context.dataStore.data
-        .map { preferences ->
-            val encryptedJson = preferences[CREDENTIALS_KEY] ?: return@map emptyList()
-            val json = decrypt(encryptedJson)
-            try {
-                Json.decodeFromString<List<GitCredential>>(json)
-            } catch (e: Exception) {
-                throw CredentialStorageException("Cannot decode saved credentials", e)
-            }
-        }
+    private val persistence = CredentialPersistence(context.dataStore, ::encrypt, ::decrypt)
+
+    override val credentialsFlow: Flow<List<GitCredential>> = persistence.credentials
 
     override suspend fun addCredential(credential: GitCredential) {
-        val currentList = credentialsFlow.first()
-        val newList = currentList + credential
-        val encryptedJson = encrypt(Json.encodeToString(newList))
-
-        context.dataStore.edit { preferences ->
-            preferences[CREDENTIALS_KEY] = encryptedJson
-        }
+        persistence.update { it + credential }
     }
 
     override suspend fun deleteCredential(id: String) {
-        val currentList = credentialsFlow.first()
-        val newList = currentList.filter { it.id != id }
-        val encryptedJson = encrypt(Json.encodeToString(newList))
-
-        context.dataStore.edit { preferences ->
-            preferences[CREDENTIALS_KEY] = encryptedJson
-        }
+        persistence.update { list -> list.filter { it.id != id } }
     }
 
+    @Synchronized
     private fun getOrCreateKey(): SecretKey {
         val keyStore = KeyStore.getInstance(ANDROID_KEY_STORE).apply { load(null) }
         keyStore.getKey(KEY_ALIAS, null)?.let { return it as SecretKey }
