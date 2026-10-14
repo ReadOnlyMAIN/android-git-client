@@ -57,7 +57,9 @@ Windows JVM file-replacement behavior is not Android's filesystem behavior. The 
 
 The `verify` job runs JVM tests, lint and debug/release builds. Separate emulator jobs execute the Android suite on API 34 and 36. Reports are uploaded even on failure. Instrumented APK compilation alone does not count as Android execution.
 
-The architecture follow-up was validated locally with Gradle 9.4.1 / JDK 21: 76 JVM tests, successful lint/debug/release builds, and 21 instrumented tests on a dedicated API 36 emulator. Local build outputs were isolated from Android Studio's locked output files; the standard project paths above are used in CI.
+The architecture follow-up was validated locally with Gradle 9.4.1 and then 9.6.0 / JDK 21: 76 JVM tests and successful lint/debug/release builds. The 21 instrumented tests passed on a dedicated API 36 emulator. Local build outputs were isolated from Android Studio's locked output files; the standard project paths above are used in CI.
+
+[Hosted run #5](https://github.com/ReadOnlyMAIN/android-git-client/actions/runs/38569001536), for commit `dbf718f`, passed `verify` and both API 34/36 emulator jobs with Gradle 9.6.0. This is the automated validation baseline, not a substitute for the release gates below.
 
 ## Performance scope
 

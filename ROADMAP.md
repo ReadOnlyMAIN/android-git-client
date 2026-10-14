@@ -106,11 +106,13 @@ This follow-up changes presentation wiring and testability, not the visual desig
 | Preserve full branch identity across multiple remotes | 🟢 Implemented — regression tests |
 | Add real loopback HTTPS authentication, redirect and cancellation tests | 🟢 Implemented — local tests passed |
 | Test actual Android Keystore, persistence, UI workflows and activity recreation | 🟢 Implemented — 21 instrumented tests passed locally on API 36 |
-| Execute Android tests in CI on API 34 and 36 | 🟡 In progress — workflow added; hosted validation pending |
+| Execute Android tests in CI on API 34 and 36 | 🟢 Implemented — both hosted emulator jobs passed |
 
 Physical-device testing, real hosting-provider checks, recovery UX, and a signed release smoke test remain release gates. This section does not declare the application production-ready solely because builds or tests pass.
 
 Local follow-up validation: 76 JVM tests passed, lint completed without errors, debug/release APKs built, and the 21-test Android suite passed on an isolated API 36 emulator. The 200-commit history diagnostic recorded 648 ms for the first read and 313 ms for the repeated read on that emulator; this is not a large-repository performance guarantee.
+
+Hosted follow-up validation: [Android checks run #5](https://github.com/ReadOnlyMAIN/android-git-client/actions/runs/38569001536) passed all three jobs (`verify`, API 34, API 36) for commit `dbf718f`, including the Gradle 9.6.0 wrapper update. Local Gradle 9.6.0 checks also passed.
 
 ### Phase 2 — Functional additions and UX/UI improvements
 
