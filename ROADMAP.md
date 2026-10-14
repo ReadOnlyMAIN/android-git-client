@@ -34,7 +34,7 @@ Correcting the data and behavior behind the existing interface is in scope. New 
 | Goal | Status |
 |---|---|
 | Refresh repository status consistently after staging, unstaging, checkout, pull, and commit | 🟢 Implemented — validation pending |
-| Identify selected repositories by stable identity / canonical path, rather than display name | 🔴 Planned |
+| Identify selected repositories by stable identity / canonical path, rather than display name | 🟢 Implemented — validation pending |
 | Read the actual checked-out branch instead of assuming `main` or a saved default | 🔴 Planned |
 | Clear or reconcile file selections when switching repository or branch | 🔴 Planned |
 | Prevent stale asynchronous results from overwriting the current repository state | 🔴 Planned |

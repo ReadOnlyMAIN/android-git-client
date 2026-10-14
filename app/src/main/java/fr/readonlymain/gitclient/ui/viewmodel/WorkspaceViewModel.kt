@@ -8,6 +8,7 @@ import fr.readonlymain.gitclient.data.model.Branch
 import fr.readonlymain.gitclient.data.model.CommitInfo
 import fr.readonlymain.gitclient.data.model.Repository
 import fr.readonlymain.gitclient.data.model.UiEvent
+import fr.readonlymain.gitclient.data.model.canonicalRepositoryPath
 import fr.readonlymain.gitclient.data.preferences.CredentialsPreferences
 import fr.readonlymain.gitclient.data.preferences.GitConfigPreferences
 import fr.readonlymain.gitclient.data.preferences.RepositoriesPreferences
@@ -89,6 +90,7 @@ class WorkspaceViewModel @Inject constructor(
     private var pushJob: Job? = null
     private var pullJob: Job? = null
     private var syncJob: Job? = null
+    private var selectedRepositoryPath: String? = null
     //endregion
 
     init {
@@ -110,6 +112,7 @@ class WorkspaceViewModel @Inject constructor(
                 } else {
                     // Clear state when no repository is selected
                     repoName.value = ""
+                    selectedRepositoryPath = null
                     branchName.value = ""
                     branches.value = emptyList()
                     commitsByRepo.value = emptyList()
@@ -126,8 +129,7 @@ class WorkspaceViewModel @Inject constructor(
 
     //region Repository & Branch Actions
     fun onRepositorySelected(repoPath: String) {
-        val repoInfo: Repository? = repositories.value.find { it.localPath == repoPath }
-        if (repoName.value == (repoInfo?.name ?: repoPath.substringAfterLast("/")))
+        if (selectedRepositoryPath == canonicalRepositoryPath(repoPath))
             return
 
         viewModelScope.launch {
@@ -462,7 +464,10 @@ class WorkspaceViewModel @Inject constructor(
 
     //region Internal Helpers
     private suspend fun selectRepo(repoPath: String) {
-        val repoInfo: Repository? = repositories.value.find { it.localPath == repoPath }
+        selectedRepositoryPath = canonicalRepositoryPath(repoPath)
+        val repoInfo = repositoriesPreferences.repositoriesFlow.first().find {
+            canonicalRepositoryPath(it.localPath) == selectedRepositoryPath
+        }
         repoName.value = repoInfo?.name ?: repoPath.substringAfterLast("/")
         branchName.value = repoInfo?.defaultBranch ?: "main"
 
