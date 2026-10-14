@@ -60,7 +60,7 @@ Correcting the data and behavior behind the existing interface is in scope. New 
 
 | Goal | Status |
 |---|---|
-| Coordinate operations per repository to prevent conflicting mutations and duplicate refreshes | 🔴 Planned |
+| Coordinate operations per repository to prevent conflicting mutations and duplicate refreshes | 🟢 Implemented — validation pending |
 | Preserve coroutine cancellation through exception handling and stop retry loops after cancellation | 🔴 Planned |
 | Consolidate repeated authentication, progress-monitor, and error-handling logic | 🔴 Planned |
 | Optimize history traversal and commit tracking calculations without changing the interface | 🔴 Planned |
