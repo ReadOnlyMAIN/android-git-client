@@ -1,27 +1,33 @@
 package fr.readonlymain.gitclient.ui.viewmodel
 
+import androidx.compose.runtime.State
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import fr.readonlymain.gitclient.data.model.Branch
-import fr.readonlymain.gitclient.data.model.CommitInfo
 import fr.readonlymain.gitclient.data.model.Repository
 import fr.readonlymain.gitclient.data.model.UiEvent
+import fr.readonlymain.gitclient.data.model.canonicalRepositoryPath
 import fr.readonlymain.gitclient.data.preferences.CredentialsPreferences
 import fr.readonlymain.gitclient.data.preferences.GitConfigPreferences
 import fr.readonlymain.gitclient.data.preferences.RepositoriesPreferences
 import fr.readonlymain.gitclient.data.repository.GitRepository
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import javax.inject.Inject
-import org.eclipse.jgit.lib.Repository as JGitRepository
 
 @HiltViewModel
 class WorkspaceViewModel @Inject constructor(
@@ -30,500 +36,274 @@ class WorkspaceViewModel @Inject constructor(
     private val credentialsPreferences: CredentialsPreferences,
     private val gitConfigPreferences: GitConfigPreferences
 ) : ViewModel() {
+    private val state = mutableStateOf(WorkspaceUiState())
+    val uiState: State<WorkspaceUiState> = state
+    private fun <T> select(read: (WorkspaceUiState) -> T): State<T> = derivedStateOf { read(state.value) }
 
-    private val _uiEvent = MutableSharedFlow<UiEvent>()
-    val uiEvent = _uiEvent.asSharedFlow()
+    // Compatibility projections keep all existing composables unchanged and read-only.
+    val repoName = select { it.repositoryName }
+    val branchName = select { it.branchName }
+    val branches = select { it.branches }
+    val needPull = select { it.needPull }
+    val needPush = select { it.needPush }
+    val unstagedFiles = select { it.status.unstaged }
+    val stagedFiles = select { it.status.staged }
+    val selectedUnstagedFiles = select { it.selectedUnstaged }
+    val selectedStagedFiles = select { it.selectedStaged }
+    val commitsByRepo = select { it.commits }
+    val isLoadingCommits = select { it.isLoading }
+    val isPushing = select { it.isPushing }
+    val isPulling = select { it.isPulling }
+    val isSynchronizing = select { it.isSynchronizing }
 
-    //region Variables
-    var repoName = mutableStateOf("")
-        private set
-
-    var branchName = mutableStateOf("")
-        private set
-
-    val repositories: StateFlow<List<Repository>> = repositoriesPreferences.repositoriesFlow
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.Lazily,
-            //started = SharingStarted.WhileSubscribed(5000),
-            //started = SharingStarted.Eagerly,
-            initialValue = emptyList()
-        )
-
-    var branches = mutableStateOf<List<Branch>>(emptyList())
-        private set
-
-    var needPull = mutableStateOf(false)
-        private set
-
-    var needPush = mutableStateOf(false)
-        private set
-
-    var unstagedFiles = mutableStateOf<Set<String>>(emptySet())
-        private set
-
-    var selectedUnstagedFiles = mutableStateOf<Set<String>>(emptySet())
-        private set
-
-    var stagedFiles = mutableStateOf<Set<String>>(emptySet())
-        private set
-
-    var selectedStagedFiles = mutableStateOf<Set<String>>(emptySet())
-        private set
-
-    var commitsByRepo = mutableStateOf<List<CommitInfo>>(emptyList())
-        private set
-
-    var isLoadingCommits = mutableStateOf(false)
-        private set
-
-    var isPushing = mutableStateOf(false)
-        private set
-
-    var isPulling = mutableStateOf(false)
-        private set
-
-    var isSynchronizing = mutableStateOf(false)
-        private set
-
+    val repositories: StateFlow<List<Repository>> = repositoriesPreferences.repositoriesFlow.stateIn(
+        viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList()
+    )
+    private val events = MutableSharedFlow<UiEvent>()
+    val uiEvent = events.asSharedFlow()
+    private val actions = Mutex()
+    private val refreshes = Mutex()
+    private var version = 0L
     private var pushJob: Job? = null
     private var pullJob: Job? = null
     private var syncJob: Job? = null
-    //endregion
 
     init {
         viewModelScope.launch {
-            repositoriesPreferences.selectedRepoFlow.collect { selectedRepo ->
-                if (selectedRepo != null) {
-                    selectRepo(selectedRepo)
-                    val selectedBranchName = repositoriesPreferences.selectedBranchFlow.first()
-                    if (selectedBranchName != null) {
-                        val branch = branches.value.find { it.name == selectedBranchName }
-                        if (branch != null) {
-                            onBranchSelected(branch)
-                        } else {
-                            refreshCommitList(selectedRepo)
+            repositoriesPreferences.selectedRepoFlow.distinctUntilChanged().collectLatest { path ->
+                val generation = ++version
+                state.value = WorkspaceUiState(repositoryPath = path?.let(::canonicalRepositoryPath))
+                safely {
+                    if (path != null) {
+                        val repository = repositoriesPreferences.repositoriesFlow.first().find {
+                            canonicalRepositoryPath(it.localPath) == canonicalRepositoryPath(path)
                         }
-                    } else {
-                        refreshCommitList(selectedRepo)
+                        val actualBranch = gitRepository.getCurrentBranch(path).getOrThrow()
+                        if (generation != version) return@safely
+                        state.value = state.value.copy(
+                            repositoryName = repository?.name ?: java.io.File(path).name,
+                            branchName = actualBranch
+                        )
+                        refresh(path, generation)
                     }
-                } else {
-                    // Clear state when no repository is selected
-                    repoName.value = ""
-                    branchName.value = ""
-                    branches.value = emptyList()
-                    commitsByRepo.value = emptyList()
-                    unstagedFiles.value = emptySet()
-                    stagedFiles.value = emptySet()
-                    selectedUnstagedFiles.value = emptySet()
-                    selectedStagedFiles.value = emptySet()
-                    needPull.value = false
-                    needPush.value = false
                 }
             }
         }
     }
 
-    //region Repository & Branch Actions
     fun onRepositorySelected(repoPath: String) {
-        val repoInfo: Repository? = repositories.value.find { it.localPath == repoPath }
-        if (repoName.value == (repoInfo?.name ?: repoPath.substringAfterLast("/")))
-            return
-
+        val path = canonicalRepositoryPath(repoPath)
+        if (state.value.repositoryPath == path) return
+        // Invalidate in-flight loads immediately, not after the next DataStore emission.
+        version++
+        state.value = WorkspaceUiState(repositoryPath = path)
         viewModelScope.launch {
-            repositoriesPreferences.saveSelectedRepo(repoPath)
-            repositoriesPreferences.resetSelectedBranch()
-
-            selectRepo(repoPath)
-            refreshCommitList(repoPath)
-            //_uiEvent.emit(UiEvent.Success("Successfully changed repository to ${repoName.value}"))
+            safely {
+                repositoriesPreferences.resetSelectedBranch()
+                repositoriesPreferences.saveSelectedRepo(path)
+            }
         }
     }
 
     fun onBranchSelected(newBranch: Branch) {
-        if (branchName.value == newBranch.name) {
-            return
-        }
-        viewModelScope.launch {
-            val selectedRepo = repositoriesPreferences.selectedRepoFlow.first()
-            if (selectedRepo != null) {
-                val result = gitRepository.checkoutBranch(selectedRepo, newBranch)
-                result.onSuccess { actualBranch ->
-                    repositoriesPreferences.saveSelectedBranch(actualBranch)
-                    branchName.value = actualBranch
-
-                    refreshBranches(selectedRepo)
-                    refreshCommitList(selectedRepo)
-                    //_uiEvent.emit(UiEvent.Success("Successfully checkout on $actualBranch"))
-                }.onFailure { error ->
-                    _uiEvent.emit(UiEvent.Error("Error: Can't checkout on $newBranch ($error)"))
-                }
-            }
+        if (branchName.value == newBranch.name) return
+        action { path, generation ->
+            val actualBranch = gitRepository.checkoutBranch(path, newBranch).getOrThrow()
+            if (!current(path, generation)) return@action
+            val nextGeneration = ++version
+            state.value = state.value.copy(branchName = actualBranch, selectedUnstaged = emptySet(), selectedStaged = emptySet())
+            repositoriesPreferences.saveSelectedBranch(actualBranch)
+            refresh(path, nextGeneration)
         }
     }
 
     fun onBranchCreated(branchName: String, sourceBranch: Branch, overwriteExisting: Boolean) {
-        viewModelScope.launch {
-            val selectedRepo = repositoriesPreferences.selectedRepoFlow.first()
-            if (selectedRepo != null) {
-                val result = gitRepository.createBranch(
-                    repoPath = selectedRepo,
-                    newBranchName = branchName,
-                    sourceBranch = sourceBranch,
-                    force = overwriteExisting
-                )
-                result.onSuccess {
-                    refreshBranches(selectedRepo)
-                    _uiEvent.emit(UiEvent.Success("Branch $branchName created based on branch ${sourceBranch.name}"))
-                }.onFailure { error ->
-                    _uiEvent.emit(UiEvent.Error("Error: Can't create branch $branchName (${error.localizedMessage})"))
-                }
-            }
+        action { path, generation ->
+            gitRepository.createBranch(path, branchName, sourceBranch, overwriteExisting).getOrThrow()
+            refresh(path, generation)
+            events.emit(UiEvent.Success("Branch $branchName created based on branch ${sourceBranch.name}"))
         }
     }
 
     fun onBranchDeleted(branch: Branch, deleteRemote: Boolean, forceDelete: Boolean) {
-        viewModelScope.launch {
-            val selectedRepo = repositoriesPreferences.selectedRepoFlow.first()
-            val credentials = credentialsPreferences.credentialsFlow.first()
-            if (selectedRepo != null) {
-                val result = gitRepository.deleteBranch(
-                    repoPath = selectedRepo,
-                    branch = branch,
-                    credentials = credentials,
-                    deleteRemote = deleteRemote,
-                    forceDelete = forceDelete
-                )
-                result.onSuccess {
-                    refreshBranches(selectedRepo)
-                    _uiEvent.emit(UiEvent.Success("Branch ${branch.name} deleted"))
-                }.onFailure { error ->
-                    _uiEvent.emit(UiEvent.Error("Error: Can't delete branch ${branch.name} (${error.localizedMessage})"))
-                }
-            }
+        action { path, generation ->
+            val result = gitRepository.deleteBranch(path, branch, credentialsPreferences.credentialsFlow.first(), deleteRemote, forceDelete)
+            refresh(path, generation)
+            result.getOrThrow()
+            events.emit(UiEvent.Success("Branch ${branch.name} deleted"))
         }
     }
-    //endregion
 
-    //region Remote Operations
     fun onSynchronize() {
-        if (isSynchronizing.value) {
-            syncJob?.cancel()
-            return
-        }
-
-        syncJob = viewModelScope.launch {
-            val selectedRepo = repositoriesPreferences.selectedRepoFlow.first()
-            val credentials = credentialsPreferences.credentialsFlow.first()
-            if (selectedRepo != null) {
-                isSynchronizing.value = true
-                try {
-                    val result = gitRepository.fetch(selectedRepo, credentials)
-                    if (result.isSuccess) {
-                        refreshCommitList(selectedRepo)
-                        refreshBranches(selectedRepo)
-                        //_uiEvent.emit(UiEvent.Success("Successfully synchronized"))
-                    } else {
-                        val error = result.exceptionOrNull()?.localizedMessage ?: "Unknown error"
-                        _uiEvent.emit(UiEvent.Error("Error: Can't synchronize ($error)"))
-                    }
-                } finally {
-                    isSynchronizing.value = false
-                }
-            }
-        }
+        if (syncJob?.isActive == true) { syncJob?.cancel(); return }
+        syncJob = remote(RemoteAction.FETCH)
     }
 
     fun onPull() {
-        if (isPulling.value) {
-            pullJob?.cancel()
-            return
-        }
-
-        pullJob = viewModelScope.launch {
-            val selectedRepo = repositoriesPreferences.selectedRepoFlow.first()
-            val credentials = credentialsPreferences.credentialsFlow.first()
-
-            if (selectedRepo != null) {
-                isPulling.value = true
-                try {
-                    val result = gitRepository.pull(selectedRepo, credentials)
-
-                    if (result.isSuccess) {
-                        refreshCommitList(selectedRepo)
-                        refreshBranches(selectedRepo)
-                        //_uiEvent.emit(UiEvent.Success("Successfully pulled refs"))
-                    } else {
-                        val error = result.exceptionOrNull()?.localizedMessage ?: "Unknown error"
-                        _uiEvent.emit(UiEvent.Error("Error: Can't pull ($error)"))
-                    }
-                } finally {
-                    isPulling.value = false
-                }
-            }
-        }
+        if (pullJob?.isActive == true) { pullJob?.cancel(); return }
+        pullJob = remote(RemoteAction.PULL)
     }
 
     fun onPush() {
-        if (isPushing.value) {
-            pushJob?.cancel()
-            return
-        }
+        if (pushJob?.isActive == true) { pushJob?.cancel(); return }
+        pushJob = remote(RemoteAction.PUSH)
+    }
 
-        pushJob = viewModelScope.launch {
-            val selectedRepo = repositoriesPreferences.selectedRepoFlow.first()
-            val credentials = credentialsPreferences.credentialsFlow.first()
+    private enum class RemoteAction { FETCH, PULL, PUSH }
 
-            if (selectedRepo != null) {
-                isPushing.value = true
-                try {
-                    val result = gitRepository.push(selectedRepo, credentials)
-                    if (result.isSuccess) {
-                        refreshCommitList(selectedRepo)
-                        refreshBranches(selectedRepo)
-                        //_uiEvent.emit(UiEvent.Success("Successfully pushed refs"))
-                    } else {
-                        val error = result.exceptionOrNull()?.localizedMessage ?: "Unknown error"
-                        _uiEvent.emit(UiEvent.Error("Error: Can't push some ref ($error)"))
-                    }
-                } finally {
-                    isPushing.value = false
-                }
+    private fun remote(operation: RemoteAction): Job = action { path, generation ->
+        fun busy(value: Boolean) {
+            if (current(path, generation)) state.value = when (operation) {
+                RemoteAction.FETCH -> state.value.copy(isSynchronizing = value)
+                RemoteAction.PULL -> state.value.copy(isPulling = value)
+                RemoteAction.PUSH -> state.value.copy(isPushing = value)
             }
         }
-    }
-    //endregion
-
-    //region Selection Management
-    fun toggleUnstagedFileSelection(filePath: String) {
-        val currentSelection = selectedUnstagedFiles.value
-        if (currentSelection.contains(filePath)) {
-            selectedUnstagedFiles.value = currentSelection - filePath
-        } else {
-            selectedUnstagedFiles.value = currentSelection + filePath
+        busy(true)
+        try {
+            val credentials = credentialsPreferences.credentialsFlow.first()
+            val result = when (operation) {
+                RemoteAction.FETCH -> gitRepository.fetch(path, credentials)
+                RemoteAction.PULL -> gitRepository.pull(path, credentials)
+                RemoteAction.PUSH -> gitRepository.push(path, credentials)
+            }
+            // A failed pull can still change the worktree or enter a conflicted state.
+            refresh(path, generation)
+            result.getOrThrow()
+        } finally {
+            busy(false)
         }
+    }
+
+    fun toggleUnstagedFileSelection(filePath: String) {
+        state.value = state.value.copy(selectedUnstaged = toggle(state.value.selectedUnstaged, filePath))
     }
 
     fun toggleStagedFileSelection(filePath: String) {
-        val currentSelection = selectedStagedFiles.value
-        if (currentSelection.contains(filePath)) {
-            selectedStagedFiles.value = currentSelection - filePath
-        } else {
-            selectedStagedFiles.value = currentSelection + filePath
-        }
+        state.value = state.value.copy(selectedStaged = toggle(state.value.selectedStaged, filePath))
     }
 
-    //endregion
+    private fun toggle(selection: Set<String>, path: String) =
+        if (path in selection) selection - path else selection + path
 
-    //region Index & Staging Operations
     fun stageSelection() {
-        viewModelScope.launch {
-            val selectedRepo = repositoriesPreferences.selectedRepoFlow.first()
-            val filesToStage = selectedUnstagedFiles.value.toList()
-
-            if (selectedRepo != null && filesToStage.isNotEmpty()) {
-                val result = gitRepository.stageFiles(selectedRepo, filesToStage)
-
-                result.onSuccess {
-                    selectedUnstagedFiles.value = emptySet()
-                    //refreshCommitList(selectedRepo)
-                    _uiEvent.emit(UiEvent.Success("${filesToStage.size} files staged"))
-                }.onFailure { error ->
-                    _uiEvent.emit(UiEvent.Error("Error: Failed to stage files (${error.localizedMessage})"))
-                }
-            }
-        }
+        val files = selectedUnstagedFiles.value.toList()
+        if (files.isEmpty()) return
+        mutate("${files.size} files staged") { gitRepository.stageFiles(it, files) }
     }
 
     fun stageAll() {
-        viewModelScope.launch {
-            val selectedRepo = repositoriesPreferences.selectedRepoFlow.first()
-
-            if (selectedRepo != null && unstagedFiles.value.toList().isNotEmpty()) {
-                val result = gitRepository.stageAll(selectedRepo)
-
-                result.onSuccess {
-                    selectedUnstagedFiles.value = emptySet()
-                    refreshRepoStatus(selectedRepo)
-                    _uiEvent.emit(UiEvent.Success("All changes staged"))
-                }.onFailure { error ->
-                    _uiEvent.emit(UiEvent.Error("Error: Failed to stage all (${error.localizedMessage})"))
-                }
-            }
-        }
+        if (unstagedFiles.value.isEmpty()) return
+        mutate("All changes staged") { gitRepository.stageAll(it) }
     }
 
     fun unstageSelection() {
-        viewModelScope.launch {
-            val selectedRepo = repositoriesPreferences.selectedRepoFlow.first()
-            val filesToUnstage = selectedStagedFiles.value.toList()
-
-            if (selectedRepo != null && filesToUnstage.isNotEmpty()) {
-                val result = gitRepository.unstageFiles(selectedRepo, filesToUnstage)
-
-                result.onSuccess {
-                    selectedStagedFiles.value = emptySet()
-                    refreshRepoStatus(selectedRepo)
-                    _uiEvent.emit(UiEvent.Success("${filesToUnstage.size} files unstaged"))
-                }.onFailure { error ->
-                    _uiEvent.emit(UiEvent.Error("Error: Failed to unstage selection (${error.localizedMessage})"))
-                }
-            }
-        }
+        val files = selectedStagedFiles.value.toList()
+        if (files.isEmpty()) return
+        mutate("${files.size} files unstaged") { gitRepository.unstageFiles(it, files) }
     }
 
-    fun unstageAll() {
-        viewModelScope.launch {
-            val selectedRepo = repositoriesPreferences.selectedRepoFlow.first()
-            if (selectedRepo != null) {
-                val result = gitRepository.unstageFiles(selectedRepo, null)
-
-                result.onSuccess {
-                    selectedStagedFiles.value = emptySet()
-                    refreshRepoStatus(selectedRepo)
-                    _uiEvent.emit(UiEvent.Success("All files unstaged"))
-                }.onFailure { error ->
-                    _uiEvent.emit(UiEvent.Error("Error: Failed to unstage all (${error.localizedMessage})"))
-                }
-            }
-        }
-    }
+    fun unstageAll() = mutate("All files unstaged") { gitRepository.unstageFiles(it, null) }
 
     fun discardSelection() {
-        viewModelScope.launch {
-            val selectedRepo = repositoriesPreferences.selectedRepoFlow.first()
+        val selection = selectedUnstagedFiles.value
+        val files = (selection.ifEmpty { unstagedFiles.value }).toList()
+        if (files.isEmpty()) return
+        mutate(if (selection.isEmpty()) "All changes discarded" else "Changes discarded for ${files.size} files") {
+            gitRepository.discardFiles(it, files)
+        }
+    }
 
-            if (selectedRepo != null) {
-                val filesToDiscard = selectedUnstagedFiles.value.toList()
+    private fun mutate(message: String, mutation: suspend (String) -> Result<Unit>) {
+        action { path, generation ->
+            mutation(path).getOrThrow()
+            refreshStatus(path, generation)
+            if (current(path, generation)) {
+                state.value = state.value.copy(selectedUnstaged = emptySet(), selectedStaged = emptySet())
+            }
+            events.emit(UiEvent.Success(message))
+        }
+    }
 
-                if (filesToDiscard.isNotEmpty()) {
-                    val result = gitRepository.discardFiles(selectedRepo, filesToDiscard)
+    fun onCommit(message: String, onCommitSuccess: () -> Unit) {
+        if (message.isBlank() || stagedFiles.value.isEmpty()) return
+        action { path, generation ->
+            gitRepository.commit(path, gitConfigPreferences.gitConfigurationFlow.first(), message).getOrThrow()
+            refresh(path, generation)
+            events.emit(UiEvent.Success("Successfully commited"))
+            if (current(path, generation)) onCommitSuccess()
+        }
+    }
 
-                    result.onSuccess {
-                        selectedUnstagedFiles.value = emptySet()
-                        refreshCommitList(selectedRepo)
-                        _uiEvent.emit(UiEvent.Success("Changes discarded for ${filesToDiscard.size} files"))
-                    }.onFailure { error ->
-                        _uiEvent.emit(UiEvent.Error("Failed to discard changes: ${error.localizedMessage}"))
-                    }
-                } else { // Discard all changes if no selection (TODO: Add confirmation dialog)
-                    val allUnstagedFiles = unstagedFiles.value.toList()
-                    val result = gitRepository.discardFiles(selectedRepo, allUnstagedFiles)
-
-                    result.onSuccess {
-                        refreshCommitList(selectedRepo)
-                        _uiEvent.emit(UiEvent.Success("All changes discarded"))
-                    }.onFailure { error ->
-                        _uiEvent.emit(UiEvent.Error("Error: Failed to discard all changes (${error.localizedMessage})"))
-                    }
+    /** Capture the context at invocation, before waiting for a previous mutation. */
+    private fun action(block: suspend (String, Long) -> Unit): Job {
+        val path = state.value.repositoryPath
+        val generation = version
+        return viewModelScope.launch {
+            safely {
+                if (path == null) return@safely
+                actions.withLock {
+                    if (current(path, generation)) block(path, generation)
                 }
             }
         }
     }
 
-    //endregion
-
-    //region Refresh Logic
-    private suspend fun refreshBranches(repoPath: String) {
-        val result = gitRepository.getBranchesFullRefs(repoPath)
-
-        result.onSuccess { rawBranches ->
-            branches.value = transformRefsToBranches(rawBranches)
-        }.onFailure { error ->
-            _uiEvent.emit(UiEvent.Error("Error: Failed to get branches (${error.localizedMessage})"))
+    private suspend fun safely(block: suspend () -> Unit) {
+        try {
+            block()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            events.emit(UiEvent.Error("Error: ${e.localizedMessage ?: "Unknown error"}"))
         }
     }
 
-    private suspend fun refreshCommitList(repoPath: String) {
-        isLoadingCommits.value = true
+    private fun current(path: String, generation: Long) =
+        generation == version && state.value.repositoryPath == canonicalRepositoryPath(path)
 
-        val commits = gitRepository.getCommits(repoPath, branchName.value)
-        commitsByRepo.value = commits
-
-        val result = gitRepository.getTrackingStatus(repoPath, branchName.value)
-
-        result.onSuccess { (ahead, behind) ->
-            needPull.value = behind > 0
-            needPush.value = ahead > 0
-            refreshRepoStatus(repoPath)
-        }.onFailure { error ->
-            _uiEvent.emit(UiEvent.Error("Error: Failed to get tracking status (${error.localizedMessage})"))
+    private suspend fun refresh(path: String, generation: Long) = refreshes.withLock {
+        if (!current(path, generation)) return@withLock
+        state.value = state.value.copy(isLoading = true)
+        try {
+            val refs = gitRepository.getBranchesFullRefs(path).getOrThrow()
+            val commits = gitRepository.getCommits(path, branchName.value)
+            val tracking = gitRepository.getTrackingStatus(path, branchName.value).getOrThrow()
+            val status = gitRepository.getRepoStatus(path)
+            if (current(path, generation)) {
+                state.value = state.value.copy(
+                    branches = transformRefsToBranches(refs), commits = commits,
+                    needPush = tracking.first > 0, needPull = tracking.second > 0, status = status,
+                    selectedUnstaged = state.value.selectedUnstaged.intersect(status.unstaged),
+                    selectedStaged = state.value.selectedStaged.intersect(status.staged)
+                )
+            }
+        } finally {
+            if (current(path, generation)) state.value = state.value.copy(isLoading = false)
         }
-
-        isLoadingCommits.value = false
     }
 
-    private suspend fun refreshRepoStatus(repoPath: String) {
-        val status = gitRepository.getRepoStatus(repoPath)
-        unstagedFiles.value = status["unstaged"] ?: emptySet()
-        stagedFiles.value = status["staged"] ?: emptySet()
-    }
-    //endregion
-
-    //region Internal Helpers
-    private suspend fun selectRepo(repoPath: String) {
-        val repoInfo: Repository? = repositories.value.find { it.localPath == repoPath }
-        repoName.value = repoInfo?.name ?: repoPath.substringAfterLast("/")
-        branchName.value = repoInfo?.defaultBranch ?: "main"
-
-        refreshBranches(repoPath)
+    private suspend fun refreshStatus(path: String, generation: Long) = refreshes.withLock {
+        val status = gitRepository.getRepoStatus(path)
+        if (current(path, generation)) state.value = state.value.copy(
+            status = status,
+            selectedUnstaged = state.value.selectedUnstaged.intersect(status.unstaged),
+            selectedStaged = state.value.selectedStaged.intersect(status.staged)
+        )
     }
 
     private fun transformRefsToBranches(refs: List<String>): List<Branch> {
-        val branchMap = mutableMapOf<String, Branch>()
-
-        refs.forEach { ref ->
-            val isLocal = ref.startsWith("refs/heads/")
-            val isRemote = ref.startsWith("refs/remotes/")
-
-            val name = when {
-                isLocal -> ref.removePrefix("refs/heads/")
-                isRemote -> ref.removePrefix("refs/remotes/")
-                    .substringAfter("/") // Retire "origin/"
-                else -> JGitRepository.shortenRefName(ref)
-            }
-
-            val existing = branchMap[name]
-
-            branchMap[name] = Branch(
-                name = name,
-                isLocal = isLocal || (existing?.isLocal ?: false),
-                isRemote = isRemote || (existing?.isRemote ?: false),
-                localRef = if (isLocal) ref else existing?.localRef,
-                remoteRef = if (isRemote) ref else existing?.remoteRef
-            )
+        val result = mutableMapOf<String, Branch>()
+        refs.filterNot { it.endsWith("/HEAD") }.forEach { ref ->
+            val local = ref.startsWith("refs/heads/")
+            val remote = ref.startsWith("refs/remotes/")
+            if (!local && !remote) return@forEach
+            val name = if (local) ref.removePrefix("refs/heads/")
+                else ref.removePrefix("refs/remotes/").substringAfter('/')
+            val previous = result[name]
+            result[name] = Branch(name, local || previous?.isLocal == true, remote || previous?.isRemote == true,
+                if (local) ref else previous?.localRef, if (remote) previous?.remoteRef ?: ref else previous?.remoteRef)
         }
-
-        return branchMap.values.toList().sortedBy { it.name }
+        return result.values.sortedBy { it.name }
     }
-
-    //endregion
-
-    fun onCommit(message: String, onCommitSuccess: () -> Unit) {
-        viewModelScope.launch {
-            val selectedRepo = repositoriesPreferences.selectedRepoFlow.first() ?: return@launch
-            val gitConfig = gitConfigPreferences.gitConfigurationFlow.first()
-
-            if (message.isBlank()) {
-                return@launch
-            }
-            if (stagedFiles.value.isEmpty()) {
-                return@launch
-            }
-
-            val result = gitRepository.commit(selectedRepo, gitConfig, message)
-
-            result.onSuccess {
-                refreshCommitList(selectedRepo)
-                refreshRepoStatus(selectedRepo)
-
-                _uiEvent.emit(UiEvent.Success("Successfully commited"))
-                onCommitSuccess()
-            }.onFailure { error ->
-                _uiEvent.emit(UiEvent.Error("Error: Failed to commit (${error.localizedMessage})"))
-            }
-        }
-    }
-
-
 }

@@ -6,11 +6,14 @@ import fr.readonlymain.gitclient.data.model.CommitInfo
 import fr.readonlymain.gitclient.data.model.GitConfig
 import fr.readonlymain.gitclient.data.model.GitCredential
 import fr.readonlymain.gitclient.data.model.Repository
+import fr.readonlymain.gitclient.data.model.RepositoryStatus
 
 /**
  * Interface defining the Git operations supported by the application.
  */
 interface GitRepository {
+    /** Actual symbolic branch, or the object ID when HEAD is detached. */
+    suspend fun getCurrentBranch(repoPath: String): Result<String>
 
     /**
      * Clones a Git repository to a local directory.
@@ -86,7 +89,7 @@ interface GitRepository {
     /**
      * Gets the status of the working directory (staged vs unstaged files).
      */
-    suspend fun getRepoStatus(repoPath: String): Map<String, Set<String>>
+    suspend fun getRepoStatus(repoPath: String): RepositoryStatus
 
     /**
      * Performs a hard reset and cleans the working directory.

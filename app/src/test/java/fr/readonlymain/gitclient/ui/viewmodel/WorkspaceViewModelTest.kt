@@ -14,6 +14,8 @@ import fr.readonlymain.gitclient.data.repository.FakeGitRepository
 import fr.readonlymain.gitclient.util.MainDispatcherRule
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.test.runCurrent
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -59,9 +61,7 @@ class WorkspaceViewModelTest {
         fakeRepoPrefs.addRepository(testRepo)
 
         // Then
-        viewModel.repositories.test {
-            assertThat(awaitItem()).containsExactly(testRepo)
-        }
+        assertThat(viewModel.repositories.first { it.isNotEmpty() }).containsExactly(testRepo)
     }
     //endregion
 
@@ -75,7 +75,8 @@ class WorkspaceViewModelTest {
         fakeRepository.commitsToReturn = commits
 
         viewModel.repositories.test {
-            val initialList = awaitItem()
+            var initialList = awaitItem()
+            if (initialList.isEmpty()) initialList = awaitItem()
             assertThat(initialList).containsExactly(testRepo)
 
             // When
@@ -105,7 +106,7 @@ class WorkspaceViewModelTest {
 
     //region Distant Operations
     @Test
-    fun `onPull success should emit success event`() = runTest {
+    fun `onPull success should refresh without success notification`() = runTest {
         // Given
         fakeRepoPrefs.saveSelectedRepo(testRepo.localPath)
         fakeRepository.shouldFail = false
@@ -115,9 +116,10 @@ class WorkspaceViewModelTest {
             viewModel.onPull()
 
             // Then
-            val event = awaitItem()
-            assertThat(event).isInstanceOf(UiEvent.Success::class.java)
-            assertThat((event as UiEvent.Success).message).contains("Successfully pulled")
+            runCurrent()
+            expectNoEvents()
+            assertThat(fakeRepository.lastActionCalled).isEqualTo("getRepoStatus")
+            assertThat(viewModel.isPulling.value).isFalse()
         }
     }
 
@@ -140,7 +142,7 @@ class WorkspaceViewModelTest {
     }
 
     @Test
-    fun `onSynchronize success should refresh and notify`() = runTest {
+    fun `onSynchronize success should refresh without success notification`() = runTest {
         // Given
         fakeRepoPrefs.saveSelectedRepo(testRepo.localPath)
         fakeRepository.shouldFail = false
@@ -150,13 +152,15 @@ class WorkspaceViewModelTest {
             viewModel.onSynchronize()
 
             // Then
-            assertThat(awaitItem()).isInstanceOf(UiEvent.Success::class.java)
-            assertThat(fakeRepository.lastActionCalled).isEqualTo("getBranchesFullRefs")
+            runCurrent()
+            expectNoEvents()
+            assertThat(fakeRepository.lastActionCalled).isEqualTo("getRepoStatus")
+            assertThat(viewModel.isSynchronizing.value).isFalse()
         }
     }
 
     @Test
-    fun `onPush success should refresh and notify`() = runTest {
+    fun `onPush success should refresh without success notification`() = runTest {
         // Given
         fakeRepoPrefs.saveSelectedRepo(testRepo.localPath)
         fakeRepository.shouldFail = false
@@ -166,8 +170,10 @@ class WorkspaceViewModelTest {
             viewModel.onPush()
 
             // Then
-            assertThat(awaitItem()).isInstanceOf(UiEvent.Success::class.java)
+            runCurrent()
+            expectNoEvents()
             assertThat(fakeRepository.lastActionCalled).isEqualTo("getRepoStatus")
+            assertThat(viewModel.isPushing.value).isFalse()
         }
     }
     //endregion
@@ -193,10 +199,9 @@ class WorkspaceViewModelTest {
     fun `discardSelection without selection should call discardFiles for all unstaged files`() =
         runTest {
             // Given
-            fakeRepoPrefs.saveSelectedRepo(testRepo.localPath)
             val allFiles = setOf("file1.kt", "file2.kt")
             fakeRepository.statusToReturn = mapOf("unstaged" to allFiles)
-            viewModel.onRepositorySelected(testRepo.localPath)
+            fakeRepoPrefs.saveSelectedRepo(testRepo.localPath)
 
             // When
             viewModel.discardSelection()
@@ -216,7 +221,7 @@ class WorkspaceViewModelTest {
         viewModel.stageSelection()
 
         // Then
-        assertThat(fakeRepository.lastActionCalled).isEqualTo("stageFiles")
+        assertThat(fakeRepository.lastActionCalled).isEqualTo("getRepoStatus")
         assertThat(fakeRepository.lastFilePatterns).contains(file)
         assertThat(viewModel.selectedUnstagedFiles.value).isEmpty()
     }
@@ -239,9 +244,8 @@ class WorkspaceViewModelTest {
     @Test
     fun `stageAll should call repository stageAll and clear selection`() = runTest {
         // Given
-        fakeRepoPrefs.saveSelectedRepo(testRepo.localPath)
         fakeRepository.statusToReturn = mapOf("unstaged" to setOf("file1.kt", "file2.kt"))
-        viewModel.onRepositorySelected(testRepo.localPath)
+        fakeRepoPrefs.saveSelectedRepo(testRepo.localPath)
 
         // When
         viewModel.stageAll()
@@ -287,24 +291,24 @@ class WorkspaceViewModelTest {
     fun `onCommit with empty message should do nothing`() = runTest {
         // Given
         fakeRepoPrefs.saveSelectedRepo(testRepo.localPath)
+        val previousAction = fakeRepository.lastActionCalled
 
         // When
         viewModel.onCommit("", onCommitSuccess = {})
 
         // Then
-        assertThat(fakeRepository.lastActionCalled).isNull()
+        assertThat(fakeRepository.lastActionCalled).isEqualTo(previousAction)
     }
 
     @Test
     fun `onCommit success should refresh and notify`() = runTest {
         // Given
-        fakeRepoPrefs.saveSelectedRepo(testRepo.localPath)
         // Simulate staged files
         fakeRepository.statusToReturn =
             mapOf("staged" to setOf("file.kt"), "unstaged" to emptySet())
 
         // Force refresh to update internal stagedFiles state in VM
-        viewModel.onRepositorySelected(testRepo.localPath)
+        fakeRepoPrefs.saveSelectedRepo(testRepo.localPath)
 
         var successCallbackCalled = false
 

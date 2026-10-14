@@ -5,6 +5,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import dagger.hilt.android.qualifiers.ApplicationContext
 import fr.readonlymain.gitclient.data.model.Repository
+import fr.readonlymain.gitclient.data.model.requireUniqueRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.json.Json
@@ -70,6 +71,7 @@ class DataStoreRepositoriesPreferences @Inject constructor(
             } else {
                 emptyList()
             }
+            requireUniqueRepository(currentList, repository)
             val newList = currentList + repository
             preferences[REPOSITORIES_KEY] = Json.encodeToString(newList)
         }
