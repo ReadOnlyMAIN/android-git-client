@@ -326,7 +326,7 @@ class WorkspaceViewModel @Inject constructor(
 
                 result.onSuccess {
                     selectedUnstagedFiles.value = emptySet()
-                    //refreshCommitList(selectedRepo)
+                    refreshRepoStatus(selectedRepo)
                     _uiEvent.emit(UiEvent.Success("${filesToStage.size} files staged"))
                 }.onFailure { error ->
                     _uiEvent.emit(UiEvent.Error("Error: Failed to stage files (${error.localizedMessage})"))
@@ -445,11 +445,11 @@ class WorkspaceViewModel @Inject constructor(
         result.onSuccess { (ahead, behind) ->
             needPull.value = behind > 0
             needPush.value = ahead > 0
-            refreshRepoStatus(repoPath)
         }.onFailure { error ->
             _uiEvent.emit(UiEvent.Error("Error: Failed to get tracking status (${error.localizedMessage})"))
         }
 
+        refreshRepoStatus(repoPath)
         isLoadingCommits.value = false
     }
 
