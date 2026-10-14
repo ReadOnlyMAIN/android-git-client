@@ -335,9 +335,10 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
     private fun validatePushResults(results: Iterable<org.eclipse.jgit.transport.PushResult>) {
         results.forEach { result ->
             result.remoteUpdates.forEach { update ->
-                check(update.status == RemoteRefUpdate.Status.OK ||
-                    update.status == RemoteRefUpdate.Status.UP_TO_DATE) {
-                    "Push failed for ${update.remoteName}: ${update.status}"
+                if (update.status != RemoteRefUpdate.Status.OK &&
+                    update.status != RemoteRefUpdate.Status.UP_TO_DATE) {
+                    throw GitOperationException(GitFailureKind.REJECTED,
+                        "Push failed for ${update.remoteName}: ${update.status}")
                 }
             }
         }
@@ -371,7 +372,7 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
                     lastException = e
                 }
             }
-            Result.failure(lastException ?: Exception("Fetch failed"))
+            Result.failure(classifyGitFailure(lastException ?: Exception("Fetch failed")))
         }
 
     override suspend fun pull(repoPath: String, credentials: List<GitCredential>): Result<Unit> =
@@ -404,14 +405,17 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
                             return@withContext Result.success(Unit)
                         } else {
                             val mergeStatus = result.mergeResult?.mergeStatus ?: "Unknown"
-                            lastException = Exception("Pull failed: $mergeStatus")
+                            lastException = GitOperationException(
+                                if (result.mergeResult?.conflicts?.isNotEmpty() == true)
+                                    GitFailureKind.CONFLICT else GitFailureKind.REJECTED,
+                                "Pull failed: $mergeStatus")
                         }
                     }
                 } catch (e: Exception) {
                     lastException = e
                 }
             }
-            Result.failure(lastException ?: Exception("Pull failed"))
+            Result.failure(classifyGitFailure(lastException ?: Exception("Pull failed")))
         }
 
     override suspend fun push(repoPath: String, credentials: List<GitCredential>): Result<Unit> =
@@ -448,7 +452,8 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
                                     }
 
                                     else -> {
-                                        throw Exception("Push failed for ${update.remoteName}: ${update.status}")
+                                        throw GitOperationException(GitFailureKind.REJECTED,
+                                            "Push failed for ${update.remoteName}: ${update.status}")
                                     }
                                 }
                             }
@@ -460,7 +465,7 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
                     lastException = e
                 }
             }
-            Result.failure(lastException ?: Exception("Push failed"))
+            Result.failure(classifyGitFailure(lastException ?: Exception("Push failed")))
         }
     //endregion
 
