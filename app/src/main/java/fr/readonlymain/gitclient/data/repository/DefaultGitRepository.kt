@@ -8,6 +8,7 @@ import fr.readonlymain.gitclient.data.model.CommitStatus
 import fr.readonlymain.gitclient.data.model.GitConfig
 import fr.readonlymain.gitclient.data.model.GitCredential
 import fr.readonlymain.gitclient.data.model.Repository
+import fr.readonlymain.gitclient.data.model.RepositoryStatus
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
@@ -574,10 +575,11 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
         withContext(Dispatchers.IO) {
             Git.open(File(repoPath)).use { git ->
                 val status = git.status().call()
-                mapOf(
-                    "unstaged" to (status.modified + status.untracked + status.missing),
-                    "staged" to (status.added + status.changed + status.removed)
-                )
+                RepositoryStatus(
+                    unstaged = status.modified + status.untracked + status.missing,
+                    staged = status.added + status.changed + status.removed,
+                    conflicts = status.conflicting
+                ).asLegacyMap()
             }
         }
 

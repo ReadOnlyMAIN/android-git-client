@@ -42,7 +42,7 @@ Correcting the data and behavior behind the existing interface is in scope. New 
 | Validate remote branch deletion results and distinguish partial local / remote success | 🟢 Implemented — validation pending |
 | Distinguish authentication failures, transport failures, Git rejections, and merge conflicts internally | 🟢 Implemented — validation pending |
 | Avoid retrying state-changing Git operations with other credentials after a non-authentication failure | 🟢 Implemented — validation pending |
-| Preserve conflict information in the repository status model, ready for later UI integration | 🔴 Planned |
+| Preserve conflict information in the repository status model, ready for later UI integration | 🟢 Implemented — validation pending |
 | Audit destructive operations and filesystem cleanup so they cannot affect unintended files | 🔴 Planned |
 
 #### Security and persistence
