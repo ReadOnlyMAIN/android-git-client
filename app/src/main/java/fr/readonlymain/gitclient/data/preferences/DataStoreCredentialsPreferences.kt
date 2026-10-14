@@ -43,12 +43,10 @@ class DataStoreCredentialsPreferences @Inject constructor(
         .map { preferences ->
             val encryptedJson = preferences[CREDENTIALS_KEY] ?: return@map emptyList()
             val json = decrypt(encryptedJson)
-            if (json.isEmpty()) return@map emptyList()
-
             try {
                 Json.decodeFromString<List<GitCredential>>(json)
-            } catch (_: Exception) {
-                emptyList()
+            } catch (e: Exception) {
+                throw CredentialStorageException("Cannot decode saved credentials", e)
             }
         }
 
@@ -102,14 +100,14 @@ class DataStoreCredentialsPreferences @Inject constructor(
             val combined = iv + encrypted
             Base64.encodeToString(combined, Base64.NO_WRAP)
         } catch (e: Exception) {
-            ""
+            throw CredentialStorageException("Cannot encrypt credentials", e)
         }
     }
 
     private fun decrypt(encryptedData: String): String {
         return try {
             val combined = Base64.decode(encryptedData, Base64.DEFAULT)
-            if (combined.size < 12) return ""
+            require(combined.size >= 28) { "Invalid encrypted credential payload" }
 
             val iv = combined.sliceArray(0 until 12)
             val encrypted = combined.sliceArray(12 until combined.size)
@@ -120,7 +118,7 @@ class DataStoreCredentialsPreferences @Inject constructor(
 
             String(cipher.doFinal(encrypted), StandardCharsets.UTF_8)
         } catch (e: Exception) {
-            ""
+            throw CredentialStorageException("Cannot decrypt credentials; the encryption key may be unavailable", e)
         }
     }
 }
