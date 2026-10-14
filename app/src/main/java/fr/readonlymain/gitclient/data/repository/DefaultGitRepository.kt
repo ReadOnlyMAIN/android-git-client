@@ -145,6 +145,7 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
 
             } catch (e: Exception) {
                 lastErrorMessage = e.localizedMessage ?: "Unknown error."
+                if (classifyGitFailure(e).kind != GitFailureKind.AUTHENTICATION) break
                 continue
             }
         }
@@ -297,6 +298,7 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
                             break
                         } catch (e: Exception) {
                             lastException = e
+                            if (classifyGitFailure(e).kind != GitFailureKind.AUTHENTICATION) break
                         }
                     }
 
@@ -370,6 +372,7 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
                     }
                 } catch (e: Exception) {
                     lastException = e
+                    if (classifyGitFailure(e).kind != GitFailureKind.AUTHENTICATION) break
                 }
             }
             Result.failure(classifyGitFailure(lastException ?: Exception("Fetch failed")))
@@ -409,10 +412,12 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
                                 if (result.mergeResult?.conflicts?.isNotEmpty() == true)
                                     GitFailureKind.CONFLICT else GitFailureKind.REJECTED,
                                 "Pull failed: $mergeStatus")
+                            break
                         }
                     }
                 } catch (e: Exception) {
                     lastException = e
+                    if (classifyGitFailure(e).kind != GitFailureKind.AUTHENTICATION) break
                 }
             }
             Result.failure(classifyGitFailure(lastException ?: Exception("Pull failed")))
@@ -463,6 +468,7 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
 
                 } catch (e: Exception) {
                     lastException = e
+                    if (classifyGitFailure(e).kind != GitFailureKind.AUTHENTICATION) break
                 }
             }
             Result.failure(classifyGitFailure(lastException ?: Exception("Push failed")))
