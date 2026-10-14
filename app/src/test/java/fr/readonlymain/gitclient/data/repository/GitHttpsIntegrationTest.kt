@@ -24,6 +24,7 @@ import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import java.io.File
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 import javax.net.ssl.HttpsURLConnection
 import javax.net.ssl.SSLSocketFactory
 
@@ -107,15 +108,19 @@ class GitHttpsIntegrationTest {
     @Test fun `authenticated HTTPS redirect cannot forward a secret to plain HTTP`() = runBlocking {
         MockWebServer().use { target ->
             target.start()
+            val authenticated = AtomicBoolean(false)
             server.dispatcher = object : Dispatcher() {
-                override fun dispatch(request: RecordedRequest): MockResponse =
-                    if (request.getHeader("Authorization") == null) MockResponse().setResponseCode(401)
+                override fun dispatch(request: RecordedRequest): MockResponse {
+                    if (request.getHeader("Authorization") == null) return MockResponse().setResponseCode(401)
                         .setHeader("WWW-Authenticate", "Basic realm=test")
-                    else MockResponse().setResponseCode(302).setHeader("Location", target.url("/repo.git/info/refs"))
+                    authenticated.set(true)
+                    return MockResponse().setResponseCode(302).setHeader("Location", target.url("/repo.git/info/refs"))
+                }
             }
             val result = repository.cloneRepo(server.url("/repo.git").toString(), listOf(credential()),
                 temporary.newFolder("clone").path) { _, _ -> }
             assertThat(result.isFailure).isTrue()
+            assertThat(authenticated.get()).isTrue()
             assertThat(target.requestCount).isEqualTo(0)
         }
     }
