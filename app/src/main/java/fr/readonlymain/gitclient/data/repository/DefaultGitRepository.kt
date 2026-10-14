@@ -69,6 +69,7 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
         onProgress: (String, Float) -> Unit
     ): Result<CloneResult> = withContext(Dispatchers.IO) {
         val attempts = try {
+            requireLocalDirectory(localPath, writable = true)
             credentialAttempts(url, credentials)
         } catch (e: Exception) {
             return@withContext Result.failure(e)
@@ -177,7 +178,11 @@ class DefaultGitRepository @Inject constructor() : GitRepository {
     override suspend fun importExistingRepo(
         localPath: String
     ): Result<CloneResult> = withContext(Dispatchers.IO) {
-        val folder = File(localPath)
+        val folder = try {
+            requireLocalDirectory(localPath)
+        } catch (e: Exception) {
+            return@withContext Result.failure(e)
+        }
         val gitDir = File(folder, ".git")
 
         if (!gitDir.exists()) {

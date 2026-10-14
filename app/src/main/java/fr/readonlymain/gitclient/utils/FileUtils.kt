@@ -19,10 +19,13 @@ import android.provider.DocumentsContract
 fun resolveUriToPath(uri: Uri): String? {
     try {
         if (DocumentsContract.isTreeUri(uri)) {
+            if (uri.authority != "com.android.externalstorage.documents") return null
             val docId = DocumentsContract.getTreeDocumentId(uri)
-            val split = docId.split(":")
+            val split = docId.split(":", limit = 2)
             val type = split[0]
             val relativePath = if (split.size > 1) split[1] else ""
+            if (relativePath.split('/').any { it == ".." } || relativePath.startsWith('/')) return null
+            if (!type.equals("primary", true) && !type.matches(Regex("[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}"))) return null
 
             return if ("primary".equals(type, ignoreCase = true)) {
                 Environment.getExternalStorageDirectory().absolutePath + "/" + relativePath
